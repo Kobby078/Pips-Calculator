@@ -7,22 +7,27 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
+const brand = {
+  text: '#F4F4F7',
+  background: '#0C0C10',
+  backgroundElement: '#16161D',
+  backgroundSelected: '#2A2340',
+  textSecondary: '#A7A6B3',
+  textMuted: '#8E8C9A',
+  accent: '#6D4F96',
+  accentSoft: '#241E33',
+  border: '#2E2C38',
+  surfaceRaised: '#1E1E28',
+  danger: '#E2B4BC',
 } as const;
+
+/** ATLASJFX is a dark fintech product, so both schemes share the brand palette. */
+export const Colors = {
+  light: brand,
+  dark: brand,
+} as const;
+
+export const Palette = brand;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 

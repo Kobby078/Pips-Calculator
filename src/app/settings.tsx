@@ -1,0 +1,125 @@
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { FormField } from '@/components/form-field';
+import { ScreenHeader } from '@/components/screen-header';
+import { ScreenScroll } from '@/components/screen-scroll';
+import { useSettings } from '@/components/settings-context';
+import { ACCOUNT_CURRENCIES, type AccountCurrency } from '@/constants/currencies';
+import { Palette, Spacing } from '@/constants/theme';
+import { sanitizeDecimal } from '@/lib/decimal-input';
+
+export default function SettingsScreen() {
+  const { currency, setCurrency, minimumLotSize, setMinimumLotSize, lotIncrement, setLotIncrement } =
+    useSettings();
+
+  return (
+    <ScreenScroll>
+      <ScreenHeader
+        title="Settings"
+        subtitle="Defaults for the calculator. They stay in memory until saving is added."
+      />
+
+      <View style={styles.card}>
+        <View style={styles.field}>
+          <Text style={styles.label}>Account currency</Text>
+          <Text style={styles.hint}>Used as the cash-risk label on the calculator.</Text>
+          <View style={styles.currencyGrid}>
+            {ACCOUNT_CURRENCIES.map((code) => {
+              const selected = code === currency;
+              return (
+                <Pressable
+                  key={code}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={code}
+                  onPress={() => setCurrency(code as AccountCurrency)}
+                  style={({ pressed }) => [
+                    styles.currencyChip,
+                    selected ? styles.currencyChipSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}>
+                  <Text style={[styles.currencyLabel, selected ? styles.currencyLabelSelected : null]}>
+                    {code}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <FormField
+          label="Minimum lot size"
+          value={minimumLotSize}
+          onChangeText={(value) => setMinimumLotSize(sanitizeDecimal(value))}
+          placeholder="Enter minimum lot size"
+          hint="Example: 0.01. Not applied to a calculation yet."
+        />
+
+        <FormField
+          label="Lot increment"
+          value={lotIncrement}
+          onChangeText={(value) => setLotIncrement(sanitizeDecimal(value))}
+          placeholder="Enter lot increment"
+          hint="Example: 0.01. Not applied to a calculation yet."
+        />
+      </View>
+    </ScreenScroll>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: Palette.backgroundElement,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    padding: Spacing.three,
+    gap: Spacing.four,
+  },
+  field: {
+    gap: Spacing.two,
+  },
+  label: {
+    color: Palette.text,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  hint: {
+    color: Palette.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  currencyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  currencyChip: {
+    minWidth: 76,
+    minHeight: 48,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencyChipSelected: {
+    backgroundColor: Palette.backgroundSelected,
+    borderColor: Palette.accent,
+  },
+  currencyLabel: {
+    color: Palette.textSecondary,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  currencyLabelSelected: {
+    color: Palette.text,
+  },
+  pressed: {
+    opacity: 0.82,
+  },
+});
