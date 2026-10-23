@@ -77,6 +77,15 @@ function conversionLabel(result: PositionCalculationSuccess): string {
   return `${pair}, entered rate`;
 }
 
+/** Label a rate the user applied from the reference feed. The sizing math is unchanged. */
+export function markIndicativeConversion(rows: ResultRow[]): ResultRow[] {
+  return rows.map((row) =>
+    row.label === 'Quote to account'
+      ? { ...row, value: row.value.replace(/, entered rate$/, ', indicative reference rate') }
+      : row,
+  );
+}
+
 function formatRiskReward(ratio: number | null): string {
   if (ratio === null || !Number.isFinite(ratio)) {
     return '—';

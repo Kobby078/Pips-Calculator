@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { calculationFingerprint } from './calculation-fingerprint';
-import { presentPosition } from './present-position';
+import { markIndicativeConversion, presentPosition } from './present-position';
 import { calculatePosition, type PositionCalculationInput } from './trading-calculations';
 import { findInstrument } from '../constants/instruments';
 
@@ -51,6 +51,16 @@ test('the $1000 EURUSD case is labeled in USD with hundredths on the lot', () =>
   assert.equal(metric(view.metrics, 'Risk / reward'), '1 : 2');
   assert.equal(view.warning, null);
   assert.equal(metric(view.summary, 'Quote to account'), 'USD matches the quote currency');
+});
+
+test('an applied reference conversion is labeled as indicative', () => {
+  const view = presented({
+    accountCurrency: 'CHF',
+    manualQuoteToAccountRate: 0.82,
+  });
+  const marked = markIndicativeConversion(view.summary);
+  assert.match(metric(marked, 'Quote to account'), /indicative reference rate/);
+  assert.match(metric(view.summary, 'Quote to account'), /entered rate/);
 });
 
 test('a $100 1% EURUSD position shows 0.005 lots and about $2 at the minimum', () => {

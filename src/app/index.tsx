@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
+import { ReferencePrice } from '@/components/reference-price';
 import { ResultPanel } from '@/components/result-panel';
 import { ScreenHeader } from '@/components/screen-header';
 import { ScreenScroll } from '@/components/screen-scroll';
@@ -9,9 +10,15 @@ import { SegmentedControl } from '@/components/segmented-control';
 import { useSettings } from '@/components/settings-context';
 import { INSTRUMENTS } from '@/constants/instruments';
 import { Palette, Spacing } from '@/constants/theme';
+import { useReferenceQuote } from '@/hooks/use-reference-quote';
 import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
-import { presentPosition, type ResultRow } from '@/lib/present-position';
+import { markIndicativeConversion, presentPosition, type ResultRow } from '@/lib/present-position';
+import {
+  conversionAfterReferenceAction,
+  indicativeQuoteToAccount,
+  levelsAfterUsePrice,
+} from '@/services/market-data';
 import {
   calculatePosition,
   cashRiskFromPercent,
@@ -56,11 +63,31 @@ export default function CalculatorScreen() {
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [conversionRate, setConversionRate] = useState('');
+  const [appliedRate, setAppliedRate] = useState<{ instrument: string; account: string; value: string } | null>(
+    null,
+  );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [panel, setPanel] = useState<PanelState | null>(null);
 
-  const selected = INSTRUMENTS.find((item) => item.symbol === instrument);
+  const selected = INSTRUMENTS.find((item) => item.symbol === instrument) ?? null;
+  const reference = useReferenceQuote(selected);
   const needsConversion = requiresManualConversion(selected?.spec ?? null, currency);
+  const indicative =
+    reference.quote?.ok === true
+      ? indicativeQuoteToAccount(
+          reference.quote.baseCurrency,
+          reference.quote.legs,
+          reference.quote.quoteCurrency,
+          currency,
+          reference.quote.derivedSymbols,
+        )
+      : null;
+  const conversionIsIndicative =
+    appliedRate !== null &&
+    appliedRate.instrument === instrument &&
+    appliedRate.account === currency &&
+    appliedRate.value === conversionRate &&
+    conversionRate.length > 0;
   const quoteCurrency = selected?.spec?.quoteCurrency;
   const inputKey = calculationFingerprint({
     instrument,
@@ -150,16 +177,36 @@ export default function CalculatorScreen() {
       body: presented.body,
       warning: presented.warning,
       note: presented.note,
-      summary: presented.summary,
+      summary: conversionIsIndicative ? markIndicativeConversion(presented.summary) : presented.summary,
       metrics: presented.metrics,
     });
+  }
+
+  function onUsePrice() {
+    const price = reference.quote?.ok ? reference.quote.price : null;
+    if (price === null) {
+      return;
+    }
+    const next = levelsAfterUsePrice({ entry, stopLoss, takeProfit }, price);
+    setEntry(next.entry);
+    clearError('entry');
+  }
+
+  function onUseRate() {
+    if (!indicative || !instrument) {
+      return;
+    }
+    const next = conversionAfterReferenceAction(conversionRate, indicative.rate, 'use-rate');
+    setConversionRate(next);
+    setAppliedRate({ instrument, account: currency, value: next });
+    clearError('conversion');
   }
 
   return (
     <ScreenScroll>
       <ScreenHeader
         title="Risk Calculator"
-        subtitle="Set the trade levels you want to size. No live prices are loaded."
+        subtitle="Set the trade levels you want to size. FX references are delayed, not broker prices."
       />
 
       <View style={styles.card}>
@@ -266,6 +313,16 @@ export default function CalculatorScreen() {
           ]}
         />
 
+        <ReferencePrice
+          view={reference}
+          onRefresh={reference.refresh}
+          onUsePrice={onUsePrice}
+          indicative={needsConversion ? indicative : null}
+          accountCurrency={currency}
+          quoteCurrency={quoteCurrency ?? null}
+          onUseRate={onUseRate}
+        />
+
         <FormField
           label="Entry price"
           value={entry}
@@ -310,7 +367,11 @@ export default function CalculatorScreen() {
               clearError('conversion');
             }}
             placeholder={`Enter ${currency} per 1 ${quoteCurrency}`}
-            hint={`How many ${currency} equal 1 ${quoteCurrency}. This rate is not loaded from the market.`}
+            hint={
+              conversionIsIndicative
+                ? `Indicative reference rate from exchangerate.dev. Edit this field to override it. Refresh will not change it.`
+                : `Manual ${quoteCurrency} to ${currency} rate. A reference rate will not replace this value.`
+            }
             error={errors.conversion}
           />
         ) : null}
