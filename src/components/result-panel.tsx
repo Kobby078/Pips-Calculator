@@ -1,54 +1,62 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette, Spacing } from '@/constants/theme';
-
-export type CapturedTrade = {
-  instrument: string;
-  balance: string;
-  riskLabel: string;
-  entry: string;
-  stopLoss: string;
-  takeProfit: string;
-};
+import { emptyMetricRows, type ResultRow } from '@/lib/present-position';
 
 type ResultPanelProps = {
-  trade: CapturedTrade | null;
+  status: 'empty' | 'outdated' | 'blocked' | 'ready';
+  title?: string;
+  body?: string;
+  warning?: string | null;
+  note?: string | null;
+  summary?: ResultRow[];
+  metrics?: ResultRow[];
 };
 
-const PLACEHOLDER_ROWS = [
-  'Position size',
-  'Risk amount',
-  'Potential reward',
-  'Risk / reward',
-] as const;
+export function ResultPanel({
+  status,
+  title,
+  body,
+  warning,
+  note,
+  summary = [],
+  metrics,
+}: ResultPanelProps) {
+  const shownMetrics = metrics ?? emptyMetricRows();
+  const heading =
+    title ??
+    (status === 'outdated'
+      ? 'Results are out of date'
+      : status === 'blocked'
+        ? 'Cannot calculate'
+        : 'No result yet');
+  const copy =
+    body ??
+    (status === 'outdated'
+      ? 'Inputs changed after the last calculation. Tap Calculate to size the position again.'
+      : 'Enter the trade details and tap Calculate. Position size, risk, and reward will appear here.');
 
-export function ResultPanel({ trade }: ResultPanelProps) {
   return (
     <View style={styles.panel}>
       <Text style={styles.kicker}>Result</Text>
-      <Text style={styles.title}>{trade ? 'Inputs captured' : 'No result yet'}</Text>
-      <Text style={styles.body}>
-        {trade
-          ? 'These details are ready for a position-size calculation. Sizing formulas are not included yet, so the figures below stay blank.'
-          : 'Enter the trade details and tap Calculate. Position size, risk, and reward will appear here.'}
-      </Text>
+      <Text style={styles.title}>{heading}</Text>
+      <Text style={styles.body}>{copy}</Text>
+      {warning ? <Text style={styles.warning}>{warning}</Text> : null}
+      {note ? <Text style={styles.note}>{note}</Text> : null}
 
-      {trade ? (
+      {status === 'ready' && summary.length > 0 ? (
         <View style={styles.summary}>
-          <SummaryRow label="Instrument" value={trade.instrument} />
-          <SummaryRow label="Account balance" value={trade.balance} />
-          <SummaryRow label="Risk" value={trade.riskLabel} />
-          <SummaryRow label="Entry" value={trade.entry} />
-          <SummaryRow label="Stop loss" value={trade.stopLoss} />
-          <SummaryRow label="Take profit" value={trade.takeProfit} />
+          {summary.map((row) => (
+            <SummaryRow key={row.label} label={row.label} value={row.value} />
+          ))}
         </View>
       ) : null}
 
       <View style={styles.metrics}>
-        {PLACEHOLDER_ROWS.map((label) => (
-          <View key={label} style={styles.metricRow}>
-            <Text style={styles.metricLabel}>{label}</Text>
-            <Text style={styles.metricValue}>—</Text>
+        {shownMetrics.map((row) => (
+          <View key={row.label} style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{row.label}</Text>
+            <Text style={styles.metricValue}>{row.value}</Text>
           </View>
         ))}
       </View>
@@ -93,6 +101,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  warning: {
+    color: Palette.danger,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  note: {
+    color: Palette.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   summary: {
     gap: Spacing.two,
     paddingVertical: Spacing.two,
@@ -130,17 +149,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.three,
   },
   metricLabel: {
     color: Palette.textSecondary,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
+    flexShrink: 1,
   },
   metricValue: {
     color: Palette.text,
-    fontSize: 20,
+    fontSize: 18,
     lineHeight: 24,
     fontWeight: '600',
+    textAlign: 'right',
   },
 });

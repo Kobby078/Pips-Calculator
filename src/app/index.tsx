@@ -2,35 +2,80 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
-import { ResultPanel, type CapturedTrade } from '@/components/result-panel';
+import { ResultPanel } from '@/components/result-panel';
 import { ScreenHeader } from '@/components/screen-header';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { SegmentedControl } from '@/components/segmented-control';
 import { useSettings } from '@/components/settings-context';
 import { INSTRUMENTS } from '@/constants/instruments';
 import { Palette, Spacing } from '@/constants/theme';
-import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
+import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
+import { presentPosition, type ResultRow } from '@/lib/present-position';
+import {
+  calculatePosition,
+  cashRiskFromPercent,
+  formatRiskInput,
+  percentFromCashRisk,
+  requiresManualConversion,
+  type RiskInputMode,
+  type TradeDirection,
+} from '@/lib/trading-calculations';
 
-type RiskMode = 'percent' | 'amount';
-
-type FieldKey = 'instrument' | 'balance' | 'riskValue' | 'entry' | 'stopLoss' | 'takeProfit';
+type FieldKey =
+  | 'instrument'
+  | 'balance'
+  | 'riskValue'
+  | 'entry'
+  | 'stopLoss'
+  | 'takeProfit'
+  | 'conversion';
 
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
+type PanelState = {
+  inputKey: string;
+  status: 'ready' | 'blocked';
+  title: string;
+  body: string;
+  warning?: string | null;
+  note?: string | null;
+  summary?: ResultRow[];
+  metrics?: ResultRow[];
+};
+
 export default function CalculatorScreen() {
-  const { currency } = useSettings();
+  const { currency, minimumLotSize, lotIncrement } = useSettings();
   const [instrument, setInstrument] = useState<string | null>(null);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
+  const [direction, setDirection] = useState<TradeDirection>('buy');
   const [balance, setBalance] = useState('');
-  const [riskMode, setRiskMode] = useState<RiskMode>('percent');
+  const [riskMode, setRiskMode] = useState<RiskInputMode>('percent');
   const [riskValue, setRiskValue] = useState('');
   const [entry, setEntry] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
+  const [conversionRate, setConversionRate] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [trade, setTrade] = useState<CapturedTrade | null>(null);
+  const [panel, setPanel] = useState<PanelState | null>(null);
 
   const selected = INSTRUMENTS.find((item) => item.symbol === instrument);
+  const needsConversion = requiresManualConversion(selected?.spec ?? null, currency);
+  const quoteCurrency = selected?.spec?.quoteCurrency;
+  const inputKey = [
+    instrument,
+    direction,
+    balance,
+    riskMode,
+    riskValue,
+    entry,
+    stopLoss,
+    takeProfit,
+    conversionRate,
+    currency,
+    minimumLotSize,
+    lotIncrement,
+  ].join('|');
+  const outdated = panel !== null && panel.inputKey !== inputKey;
 
   function clearError(key: FieldKey) {
     setErrors((current) => {
@@ -43,47 +88,69 @@ export default function CalculatorScreen() {
     });
   }
 
+  function onRiskModeChange(next: RiskInputMode) {
+    if (next === riskMode) {
+      return;
+    }
+    const balanceNumber = readPositiveDecimal(balance);
+    const riskNumber = readPositiveDecimal(riskValue);
+    if (typeof balanceNumber === 'number' && typeof riskNumber === 'number') {
+      const converted =
+        next === 'amount'
+          ? cashRiskFromPercent(balanceNumber, riskNumber)
+          : percentFromCashRisk(balanceNumber, riskNumber);
+      setRiskValue(formatRiskInput(converted));
+    }
+    setRiskMode(next);
+    clearError('riskValue');
+  }
+
   function onCalculate() {
-    const nextErrors: FieldErrors = {};
+    const result = calculatePosition({
+      instrument: selected ?? null,
+      direction,
+      balance: readPositiveDecimal(balance),
+      riskMode,
+      riskValue: readPositiveDecimal(riskValue),
+      entry: readPositiveDecimal(entry),
+      stopLoss: readPositiveDecimal(stopLoss),
+      takeProfit: readPositiveDecimal(takeProfit),
+      accountCurrency: currency,
+      minimumLot: readPositiveDecimal(minimumLotSize),
+      lotIncrement: readPositiveDecimal(lotIncrement),
+      manualQuoteToAccountRate: needsConversion ? readPositiveDecimal(conversionRate) : 'empty',
+    });
 
-    if (!instrument) {
-      nextErrors.instrument = 'Select an instrument';
-    }
-    if (!isPositiveDecimal(balance)) {
-      nextErrors.balance = 'Enter an account balance greater than zero';
-    }
-    if (!isPositiveDecimal(riskValue)) {
-      nextErrors.riskValue =
-        riskMode === 'percent'
-          ? 'Enter a risk percentage greater than zero'
-          : `Enter a risk amount in ${currency} greater than zero`;
-    }
-    if (!isPositiveDecimal(entry)) {
-      nextErrors.entry = 'Enter an entry price greater than zero';
-    }
-    if (!isPositiveDecimal(stopLoss)) {
-      nextErrors.stopLoss = 'Enter a stop loss greater than zero';
-    }
-    if (takeProfit.trim().length > 0 && !isPositiveDecimal(takeProfit)) {
-      nextErrors.takeProfit = 'Enter a take profit greater than zero, or leave it blank';
-    }
-
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      setTrade(null);
+    if (!result.ok) {
+      const nextErrors: FieldErrors = {};
+      for (const error of result.errors) {
+        if (error.field === 'lots') {
+          continue;
+        }
+        const key = error.field === 'risk' ? 'riskValue' : error.field;
+        nextErrors[key] = nextErrors[key] ? `${nextErrors[key]} ${error.message}` : error.message;
+      }
+      setErrors(nextErrors);
+      setPanel({
+        inputKey,
+        status: 'blocked',
+        title: 'Cannot calculate',
+        body: result.errors.map((error) => error.message).join(' '),
+      });
       return;
     }
 
-    const riskLabel =
-      riskMode === 'percent' ? `${riskValue.trim()}%` : `${riskValue.trim()} ${currency}`;
-
-    setTrade({
-      instrument: instrument ?? '',
-      balance: balance.trim(),
-      riskLabel,
-      entry: entry.trim(),
-      stopLoss: stopLoss.trim(),
-      takeProfit: takeProfit.trim().length > 0 ? takeProfit.trim() : 'Not set',
+    const presented = presentPosition(result);
+    setErrors({});
+    setPanel({
+      inputKey,
+      status: 'ready',
+      title: presented.title,
+      body: presented.body,
+      warning: presented.warning,
+      note: presented.note,
+      summary: presented.summary,
+      metrics: presented.metrics,
     });
   }
 
@@ -127,6 +194,7 @@ export default function CalculatorScreen() {
                       setInstrument(item.symbol);
                       setInstrumentOpen(false);
                       clearError('instrument');
+                      clearError('conversion');
                     }}
                     style={({ pressed }) => [
                       styles.instrumentRow,
@@ -156,10 +224,7 @@ export default function CalculatorScreen() {
         <SegmentedControl
           label="Risk"
           value={riskMode}
-          onChange={(mode) => {
-            setRiskMode(mode);
-            clearError('riskValue');
-          }}
+          onChange={onRiskModeChange}
           options={[
             { value: 'percent', label: 'Percentage' },
             { value: 'amount', label: currency },
@@ -175,6 +240,20 @@ export default function CalculatorScreen() {
           }}
           placeholder={riskMode === 'percent' ? 'Enter risk percentage' : `Enter risk in ${currency}`}
           error={errors.riskValue}
+        />
+
+        <SegmentedControl
+          label="Direction"
+          value={direction}
+          onChange={(next) => {
+            setDirection(next);
+            clearError('stopLoss');
+            clearError('takeProfit');
+          }}
+          options={[
+            { value: 'buy', label: 'Buy' },
+            { value: 'sell', label: 'Sell' },
+          ]}
         />
 
         <FormField
@@ -212,6 +291,20 @@ export default function CalculatorScreen() {
           error={errors.takeProfit}
         />
 
+        {needsConversion && quoteCurrency ? (
+          <FormField
+            label={`${quoteCurrency} to ${currency} rate`}
+            value={conversionRate}
+            onChangeText={(value) => {
+              setConversionRate(sanitizeDecimal(value));
+              clearError('conversion');
+            }}
+            placeholder={`Enter ${currency} per 1 ${quoteCurrency}`}
+            hint={`How many ${currency} equal 1 ${quoteCurrency}. This rate is not loaded from the market.`}
+            error={errors.conversion}
+          />
+        ) : null}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Calculate"
@@ -221,7 +314,15 @@ export default function CalculatorScreen() {
         </Pressable>
       </View>
 
-      <ResultPanel trade={trade} />
+      <ResultPanel
+        status={panel === null ? 'empty' : outdated ? 'outdated' : panel.status}
+        title={panel && !outdated ? panel.title : undefined}
+        body={panel && !outdated ? panel.body : undefined}
+        warning={panel && !outdated ? panel.warning : null}
+        note={panel && !outdated ? panel.note : null}
+        summary={panel && !outdated ? panel.summary : []}
+        metrics={panel && !outdated ? panel.metrics : undefined}
+      />
     </ScreenScroll>
   );
 }

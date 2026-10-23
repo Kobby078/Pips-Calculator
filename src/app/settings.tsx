@@ -22,7 +22,9 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <View style={styles.field}>
           <Text style={styles.label}>Account currency</Text>
-          <Text style={styles.hint}>Used as the cash-risk label on the calculator.</Text>
+          <Text style={styles.hint}>
+            Used for cash risk and for converting a quote currency into the account currency.
+          </Text>
           <View style={styles.currencyGrid}>
             {ACCOUNT_CURRENCIES.map((code) => {
               const selected = code === currency;
@@ -52,7 +54,7 @@ export default function SettingsScreen() {
           value={minimumLotSize}
           onChangeText={(value) => setMinimumLotSize(sanitizeDecimal(value))}
           placeholder="Enter minimum lot size"
-          hint="Example: 0.01. Not applied to a calculation yet."
+          hint="Example: 0.01. Calculate rounds the position down to this size or larger."
         />
 
         <FormField
@@ -60,7 +62,7 @@ export default function SettingsScreen() {
           value={lotIncrement}
           onChangeText={(value) => setLotIncrement(sanitizeDecimal(value))}
           placeholder="Enter lot increment"
-          hint="Example: 0.01. Not applied to a calculation yet."
+          hint="Example: 0.01. Lots step up from the minimum by this amount, and never round up."
         />
       </View>
     </ScreenScroll>
