@@ -1,10 +1,12 @@
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 import { AccountCurrency, DEFAULT_ACCOUNT_CURRENCY } from '@/constants/currencies';
 
 type SettingsContextValue = {
   currency: AccountCurrency;
   setCurrency: (currency: AccountCurrency) => void;
+  /** Set after the account currency changes. Entered amounts are not converted. */
+  currencyNotice: string | null;
   minimumLotSize: string;
   setMinimumLotSize: (value: string) => void;
   lotIncrement: string;
@@ -14,20 +16,35 @@ type SettingsContextValue = {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrency] = useState<AccountCurrency>(DEFAULT_ACCOUNT_CURRENCY);
+  const [currency, setCurrencyState] = useState<AccountCurrency>(DEFAULT_ACCOUNT_CURRENCY);
+  const [currencyNotice, setCurrencyNotice] = useState<string | null>(null);
   const [minimumLotSize, setMinimumLotSize] = useState('');
   const [lotIncrement, setLotIncrement] = useState('');
+
+  const setCurrency = useCallback(
+    (next: AccountCurrency) => {
+      if (next === currency) {
+        return;
+      }
+      setCurrencyState(next);
+      setCurrencyNotice(
+        `${next} is now the account currency. Balance and cash amounts keep the digits you typed. They are denominated in ${next} and were not converted.`,
+      );
+    },
+    [currency],
+  );
 
   const value = useMemo(
     () => ({
       currency,
       setCurrency,
+      currencyNotice,
       minimumLotSize,
       setMinimumLotSize,
       lotIncrement,
       setLotIncrement,
     }),
-    [currency, lotIncrement, minimumLotSize],
+    [currency, currencyNotice, lotIncrement, minimumLotSize, setCurrency],
   );
 
   return <SettingsContext value={value}>{children}</SettingsContext>;

@@ -9,8 +9,15 @@ import { Palette, Spacing } from '@/constants/theme';
 import { sanitizeDecimal } from '@/lib/decimal-input';
 
 export default function SettingsScreen() {
-  const { currency, setCurrency, minimumLotSize, setMinimumLotSize, lotIncrement, setLotIncrement } =
-    useSettings();
+  const {
+    currency,
+    setCurrency,
+    currencyNotice,
+    minimumLotSize,
+    setMinimumLotSize,
+    lotIncrement,
+    setLotIncrement,
+  } = useSettings();
 
   return (
     <ScreenScroll>
@@ -23,8 +30,10 @@ export default function SettingsScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Account currency</Text>
           <Text style={styles.hint}>
-            Used for cash risk and for converting a quote currency into the account currency.
+            Denomination for the balance and cash risk. Quote-currency results use this currency when
+            a rate is known. Typed amounts are not exchanged.
           </Text>
+          {currencyNotice ? <Text style={styles.hint}>{currencyNotice}</Text> : null}
           <View style={styles.currencyGrid}>
             {ACCOUNT_CURRENCIES.map((code) => {
               const selected = code === currency;

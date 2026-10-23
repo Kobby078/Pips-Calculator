@@ -59,6 +59,42 @@ function success(overrides: Partial<PositionCalculationInput> = {}): PositionCal
   return result;
 }
 
+test('EURUSD buy at 1.08500 with $1000 and 2% risk sizes 0.10 lots, $20 risk, and $40 reward', () => {
+  const result = success({
+    balance: 1000,
+    riskValue: 2,
+    entry: 1.085,
+    stopLoss: 1.083,
+    takeProfit: 1.089,
+  });
+  near(result.riskAmount, 20);
+  near(result.riskPercent, 2);
+  near(result.stopPips, 20);
+  near(result.brokerLots ?? NaN, 0.1);
+  near(result.theoreticalLots, 0.1);
+  near(result.actualLoss ?? NaN, 20);
+  near(result.reward ?? NaN, 40);
+  near(result.riskRewardRatio ?? NaN, 2);
+  near(result.takeProfitPips ?? NaN, 40);
+  assert.equal(result.warning, null);
+  assert.equal(result.accountCurrency, 'USD');
+});
+
+test('the same EURUSD prices on a sell keep the 20-pip stop and 1:2 reward', () => {
+  const result = success({
+    direction: 'sell',
+    balance: 1000,
+    riskValue: 2,
+    entry: 1.085,
+    stopLoss: 1.087,
+    takeProfit: 1.081,
+  });
+  near(result.stopPips, 20);
+  near(result.brokerLots ?? NaN, 0.1);
+  near(result.reward ?? NaN, 40);
+  near(result.riskRewardRatio ?? NaN, 2);
+});
+
 test('EURUSD USD account, $100, 1%, 20-pip stop has no 0.01 lot inside the budget', () => {
   const result = success();
   near(result.riskAmount, 1);

@@ -33,7 +33,7 @@ export function ResultPanel({
   const copy =
     body ??
     (status === 'outdated'
-      ? 'Inputs changed after the last calculation. Tap Calculate to size the position again.'
+      ? 'Inputs or settings changed after the last calculation. Tap Calculate to size the position again.'
       : 'Enter the trade details and tap Calculate. Position size, risk, and reward will appear here.');
 
   return (

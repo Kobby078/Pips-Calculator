@@ -34,7 +34,7 @@ export function presentPosition(result: PositionCalculationSuccess): PresentedPo
   const supported = result.brokerLots !== null && result.actualLoss !== null;
   const body = supported
     ? 'Loss and reward use the broker lot, rounded down to the lot step. Nothing larger than the chosen risk is suggested.'
-    : `No supported lot size fits this risk. The minimum position of ${formatLots(result.minimumLot)} lots would risk ${formatMoney(result.minimumPositionRisk, currency)}, which is above the ${formatMoney(result.riskAmount, currency)} budget.`;
+    : `No supported lot size fits this risk. The minimum position of ${formatLotSize(result.minimumLot)} lots would risk ${formatMoney(result.minimumPositionRisk, currency)}, which is above the ${formatMoney(result.riskAmount, currency)} budget.`;
 
   return {
     title: supported ? 'Position sized' : 'Risk budget is below the minimum lot',
@@ -44,14 +44,14 @@ export function presentPosition(result: PositionCalculationSuccess): PresentedPo
     summary: [
       { label: 'Instrument', value: result.symbol },
       { label: 'Direction', value: result.direction === 'buy' ? 'Buy' : 'Sell' },
-      { label: 'Conversion', value: conversionLabel(result) },
+      { label: 'Quote to account', value: conversionLabel(result) },
     ],
     metrics: [
-      { label: 'Theoretical lots', value: formatLots(result.theoreticalLots) },
-      { label: 'Broker lots', value: result.brokerLots === null ? 'None' : formatLots(result.brokerLots) },
-      { label: 'Stop distance', value: `${formatLots(result.stopPips)} pips` },
+      { label: 'Theoretical lots', value: formatLotSize(result.theoreticalLots) },
+      { label: 'Broker lots', value: result.brokerLots === null ? 'None' : formatLotSize(result.brokerLots) },
+      { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
       { label: 'Cash risk', value: formatMoney(result.riskAmount, currency) },
-      { label: 'Risk percentage', value: `${formatLots(result.riskPercent)}%` },
+      { label: 'Risk percentage', value: `${formatPips(result.riskPercent)}%` },
       {
         label: 'Estimated loss',
         value: result.actualLoss === null ? '—' : formatMoney(result.actualLoss, currency),
@@ -66,29 +66,53 @@ export function presentPosition(result: PositionCalculationSuccess): PresentedPo
 }
 
 function conversionLabel(result: PositionCalculationSuccess): string {
-  const rate = formatLots(result.quoteToAccountRate);
+  if (result.conversionSource === 'quote-currency') {
+    return `${result.accountCurrency} matches the quote currency`;
+  }
+  const rate = formatRate(result.quoteToAccountRate);
   const pair = `1 ${result.quoteCurrency} = ${rate} ${result.accountCurrency}`;
   if (result.conversionSource === 'base-price') {
     return `${pair}, from the ${result.symbol} price`;
   }
-  if (result.conversionSource === 'manual') {
-    return `${pair}, entered rate`;
-  }
-  return pair;
+  return `${pair}, entered rate`;
 }
 
 function formatRiskReward(ratio: number | null): string {
   if (ratio === null || !Number.isFinite(ratio)) {
     return '—';
   }
-  return `1 : ${formatLots(ratio)}`;
+  return `1 : ${formatPips(ratio)}`;
 }
 
 function formatMoney(value: number, currency: string): string {
-  return `${trimNumber(value, 2)} ${currency}`;
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  const cents = value.toFixed(2);
+  if ((cents === '0.00' || cents === '-0.00') && value !== 0) {
+    return `${trimNumber(value, 8)} ${currency}`;
+  }
+  return `${cents} ${currency}`;
 }
 
-function formatLots(value: number): string {
+/** Keep extra precision such as 0.005, and show hundredths for sizes like 0.10. */
+function formatLotSize(value: number): string {
+  const precise = trimNumber(value, 8);
+  if (precise === '—') {
+    return precise;
+  }
+  const fraction = precise.split('.')[1] ?? '';
+  if (fraction.length >= 2) {
+    return precise;
+  }
+  return Number(precise).toFixed(2);
+}
+
+function formatPips(value: number): string {
+  return trimNumber(value, 8);
+}
+
+function formatRate(value: number): string {
   return trimNumber(value, 8);
 }
 

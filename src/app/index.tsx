@@ -9,6 +9,7 @@ import { SegmentedControl } from '@/components/segmented-control';
 import { useSettings } from '@/components/settings-context';
 import { INSTRUMENTS } from '@/constants/instruments';
 import { Palette, Spacing } from '@/constants/theme';
+import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 import { presentPosition, type ResultRow } from '@/lib/present-position';
 import {
@@ -44,7 +45,7 @@ type PanelState = {
 };
 
 export default function CalculatorScreen() {
-  const { currency, minimumLotSize, lotIncrement } = useSettings();
+  const { currency, currencyNotice, minimumLotSize, lotIncrement } = useSettings();
   const [instrument, setInstrument] = useState<string | null>(null);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [direction, setDirection] = useState<TradeDirection>('buy');
@@ -61,7 +62,7 @@ export default function CalculatorScreen() {
   const selected = INSTRUMENTS.find((item) => item.symbol === instrument);
   const needsConversion = requiresManualConversion(selected?.spec ?? null, currency);
   const quoteCurrency = selected?.spec?.quoteCurrency;
-  const inputKey = [
+  const inputKey = calculationFingerprint({
     instrument,
     direction,
     balance,
@@ -71,10 +72,10 @@ export default function CalculatorScreen() {
     stopLoss,
     takeProfit,
     conversionRate,
-    currency,
+    accountCurrency: currency,
     minimumLotSize,
     lotIncrement,
-  ].join('|');
+  });
   const outdated = panel !== null && panel.inputKey !== inputKey;
 
   function clearError(key: FieldKey) {
@@ -211,13 +212,17 @@ export default function CalculatorScreen() {
         </View>
 
         <FormField
-          label="Account balance"
+          label={`Account balance (${currency})`}
           value={balance}
           onChangeText={(value) => {
             setBalance(sanitizeDecimal(value));
             clearError('balance');
           }}
-          placeholder="Enter account balance"
+          placeholder={`Enter balance in ${currency}`}
+          hint={
+            currencyNotice ??
+            `Denominated in ${currency}. Changing the account currency does not convert this number.`
+          }
           error={errors.balance}
         />
 
@@ -239,6 +244,11 @@ export default function CalculatorScreen() {
             clearError('riskValue');
           }}
           placeholder={riskMode === 'percent' ? 'Enter risk percentage' : `Enter risk in ${currency}`}
+          hint={
+            riskMode === 'amount'
+              ? `Denominated in ${currency}. Changing the account currency does not convert this number.`
+              : undefined
+          }
           error={errors.riskValue}
         />
 
