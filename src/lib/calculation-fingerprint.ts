@@ -11,6 +11,7 @@ export type CalculationFingerprintInput = {
   accountCurrency: string;
   minimumLotSize: string;
   lotIncrement: string;
+  lotSource: string;
 };
 
 /** Identity of the inputs behind a result. A new value means the shown result is stale. */
@@ -28,5 +29,6 @@ export function calculationFingerprint(input: CalculationFingerprintInput): stri
     input.accountCurrency,
     input.minimumLotSize,
     input.lotIncrement,
+    input.lotSource,
   ].join('|');
 }

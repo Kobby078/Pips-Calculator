@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BrokerVolume } from '@/components/broker-volume';
 import { FormField } from '@/components/form-field';
 import { ReferencePrice } from '@/components/reference-price';
 import { ResultPanel } from '@/components/result-panel';
@@ -13,6 +14,7 @@ import { Palette, Spacing } from '@/constants/theme';
 import { useReferenceQuote } from '@/hooks/use-reference-quote';
 import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
+import { lotSettingsSummary, resolveLotSettings } from '@/lib/lot-settings';
 import { markIndicativeConversion, presentPosition, type ResultRow } from '@/lib/present-position';
 import {
   conversionAfterReferenceAction,
@@ -52,7 +54,15 @@ type PanelState = {
 };
 
 export default function CalculatorScreen() {
-  const { currency, currencyNotice, minimumLotSize, lotIncrement } = useSettings();
+  const {
+    currency,
+    currencyNotice,
+    minimumLotSize,
+    lotIncrement,
+    instrumentLots,
+    setInstrumentVolume,
+    clearInstrumentVolume,
+  } = useSettings();
   const [instrument, setInstrument] = useState<string | null>(null);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [direction, setDirection] = useState<TradeDirection>('buy');
@@ -89,6 +99,12 @@ export default function CalculatorScreen() {
     appliedRate.value === conversionRate &&
     conversionRate.length > 0;
   const quoteCurrency = selected?.spec?.quoteCurrency;
+  const lots = resolveLotSettings({
+    symbol: instrument,
+    globalMinimum: minimumLotSize,
+    globalIncrement: lotIncrement,
+    instrumentLots,
+  });
   const inputKey = calculationFingerprint({
     instrument,
     direction,
@@ -100,8 +116,9 @@ export default function CalculatorScreen() {
     takeProfit,
     conversionRate,
     accountCurrency: currency,
-    minimumLotSize,
-    lotIncrement,
+    minimumLotSize: lots.minimumLot,
+    lotIncrement: lots.lotIncrement,
+    lotSource: lots.source,
   });
   const outdated = panel !== null && panel.inputKey !== inputKey;
 
@@ -134,6 +151,20 @@ export default function CalculatorScreen() {
   }
 
   function onCalculate() {
+    if (!lots.valid) {
+      const where =
+        lots.source === 'instrument' && instrument
+          ? `for ${instrument}`
+          : 'in Settings';
+      setPanel({
+        inputKey,
+        status: 'blocked',
+        title: 'Cannot calculate',
+        body: `Enter a minimum lot size and a lot increment greater than zero ${where}.`,
+      });
+      return;
+    }
+
     const result = calculatePosition({
       instrument: selected ?? null,
       direction,
@@ -144,8 +175,8 @@ export default function CalculatorScreen() {
       stopLoss: readPositiveDecimal(stopLoss),
       takeProfit: readPositiveDecimal(takeProfit),
       accountCurrency: currency,
-      minimumLot: readPositiveDecimal(minimumLotSize),
-      lotIncrement: readPositiveDecimal(lotIncrement),
+      minimumLot: readPositiveDecimal(lots.minimumLot),
+      lotIncrement: readPositiveDecimal(lots.lotIncrement),
       manualQuoteToAccountRate: needsConversion ? readPositiveDecimal(conversionRate) : 'empty',
     });
 
@@ -177,7 +208,10 @@ export default function CalculatorScreen() {
       body: presented.body,
       warning: presented.warning,
       note: presented.note,
-      summary: conversionIsIndicative ? markIndicativeConversion(presented.summary) : presented.summary,
+      summary: [
+        ...(conversionIsIndicative ? markIndicativeConversion(presented.summary) : presented.summary),
+        lotSettingsSummary(lots.source, result.symbol),
+      ],
       metrics: presented.metrics,
     });
   }
@@ -257,6 +291,16 @@ export default function CalculatorScreen() {
             </View>
           ) : null}
         </View>
+
+        {selected ? (
+          <BrokerVolume
+            key={selected.symbol}
+            symbol={selected.symbol}
+            resolved={lots}
+            onChange={(volume) => setInstrumentVolume(selected.symbol, volume)}
+            onUseDefaults={() => clearInstrumentVolume(selected.symbol)}
+          />
+        ) : null}
 
         <FormField
           label={`Account balance (${currency})`}

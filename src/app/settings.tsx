@@ -6,7 +6,7 @@ import { ScreenScroll } from '@/components/screen-scroll';
 import { useSettings } from '@/components/settings-context';
 import { ACCOUNT_CURRENCIES, type AccountCurrency } from '@/constants/currencies';
 import { Palette, Spacing } from '@/constants/theme';
-import { sanitizeDecimal } from '@/lib/decimal-input';
+import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 
 export default function SettingsScreen() {
   const {
@@ -23,7 +23,7 @@ export default function SettingsScreen() {
     <ScreenScroll>
       <ScreenHeader
         title="Settings"
-        subtitle="Defaults for the calculator. They stay in memory until saving is added."
+        subtitle="Saved on this device. Lot defaults apply until you set a broker size on the calculator."
       />
 
       <View style={styles.card}>
@@ -58,12 +58,17 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        <Text style={styles.hint}>
+          Minimum lot is the smallest size a broker will accept. Lot increment is the step above that minimum.
+          They can differ. These defaults are your choices, not a check against a broker.
+        </Text>
         <FormField
           label="Minimum lot size"
           value={minimumLotSize}
           onChangeText={(value) => setMinimumLotSize(sanitizeDecimal(value))}
           placeholder="Enter minimum lot size"
-          hint="Example: 0.01. Calculate rounds the position down to this size or larger."
+          hint="Example: 0.01. Used when an instrument has no saved broker size."
+          error={isPositiveDecimal(minimumLotSize) ? undefined : 'Enter a minimum lot size greater than zero.'}
         />
 
         <FormField
@@ -72,6 +77,7 @@ export default function SettingsScreen() {
           onChangeText={(value) => setLotIncrement(sanitizeDecimal(value))}
           placeholder="Enter lot increment"
           hint="Example: 0.01. Lots step up from the minimum by this amount, and never round up."
+          error={isPositiveDecimal(lotIncrement) ? undefined : 'Enter a lot increment greater than zero.'}
         />
       </View>
     </ScreenScroll>

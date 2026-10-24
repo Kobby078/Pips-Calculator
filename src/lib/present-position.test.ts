@@ -96,6 +96,7 @@ test('changing account currency, minimum lot, or increment marks a result stale 
     accountCurrency: 'USD',
     minimumLotSize: '0.01',
     lotIncrement: '0.01',
+    lotSource: 'global',
   });
 
   assert.notEqual(
@@ -113,6 +114,7 @@ test('changing account currency, minimum lot, or increment marks a result stale 
       accountCurrency: 'EUR',
       minimumLotSize: '0.01',
       lotIncrement: '0.01',
+      lotSource: 'global',
     }),
   );
   assert.notEqual(
@@ -130,6 +132,7 @@ test('changing account currency, minimum lot, or increment marks a result stale 
       accountCurrency: 'USD',
       minimumLotSize: '0.10',
       lotIncrement: '0.01',
+      lotSource: 'global',
     }),
   );
   assert.notEqual(
@@ -147,6 +150,7 @@ test('changing account currency, minimum lot, or increment marks a result stale 
       accountCurrency: 'USD',
       minimumLotSize: '0.01',
       lotIncrement: '0.02',
+      lotSource: 'global',
     }),
   );
   assert.equal(balance, '1000');

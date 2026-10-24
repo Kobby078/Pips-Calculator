@@ -1,6 +1,15 @@
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { AccountCurrency, DEFAULT_ACCOUNT_CURRENCY } from '@/constants/currencies';
+import {
+  DEFAULT_LOT_INCREMENT,
+  DEFAULT_MINIMUM_LOT,
+  parseStoredSettings,
+  serializeSettings,
+  SETTINGS_STORAGE_KEY,
+  type InstrumentVolume,
+} from '@/lib/lot-settings';
 
 type SettingsContextValue = {
   currency: AccountCurrency;
@@ -11,6 +20,9 @@ type SettingsContextValue = {
   setMinimumLotSize: (value: string) => void;
   lotIncrement: string;
   setLotIncrement: (value: string) => void;
+  instrumentLots: Readonly<Record<string, InstrumentVolume>>;
+  setInstrumentVolume: (symbol: string, volume: InstrumentVolume) => void;
+  clearInstrumentVolume: (symbol: string) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -18,8 +30,10 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<AccountCurrency>(DEFAULT_ACCOUNT_CURRENCY);
   const [currencyNotice, setCurrencyNotice] = useState<string | null>(null);
-  const [minimumLotSize, setMinimumLotSize] = useState('');
-  const [lotIncrement, setLotIncrement] = useState('');
+  const [minimumLotSize, setMinimumLotSize] = useState(DEFAULT_MINIMUM_LOT);
+  const [lotIncrement, setLotIncrement] = useState(DEFAULT_LOT_INCREMENT);
+  const [instrumentLots, setInstrumentLots] = useState<Record<string, InstrumentVolume>>({});
+  const [hydrated, setHydrated] = useState(false);
 
   const setCurrency = useCallback(
     (next: AccountCurrency) => {
@@ -34,6 +48,58 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [currency],
   );
 
+  const setInstrumentVolume = useCallback((symbol: string, volume: InstrumentVolume) => {
+    setInstrumentLots((current) => ({
+      ...current,
+      [symbol]: volume,
+    }));
+  }, []);
+
+  const clearInstrumentVolume = useCallback((symbol: string) => {
+    setInstrumentLots((current) => {
+      if (!current[symbol]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[symbol];
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(SETTINGS_STORAGE_KEY)
+      .then((raw) => {
+        if (!active) {
+          return;
+        }
+        const stored = parseStoredSettings(raw);
+        if (stored) {
+          setCurrencyState(stored.currency);
+          setMinimumLotSize(stored.minimumLotSize);
+          setLotIncrement(stored.lotIncrement);
+          setInstrumentLots(stored.instrumentLots);
+        }
+        setHydrated(true);
+      })
+      .catch(() => {
+        if (active) {
+          setHydrated(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+    const payload = serializeSettings({ currency, minimumLotSize, lotIncrement, instrumentLots });
+    void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, payload).catch(() => undefined);
+  }, [currency, hydrated, instrumentLots, lotIncrement, minimumLotSize]);
+
   const value = useMemo(
     () => ({
       currency,
@@ -43,8 +109,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setMinimumLotSize,
       lotIncrement,
       setLotIncrement,
+      instrumentLots,
+      setInstrumentVolume,
+      clearInstrumentVolume,
     }),
-    [currency, currencyNotice, lotIncrement, minimumLotSize, setCurrency],
+    [
+      currency,
+      currencyNotice,
+      instrumentLots,
+      lotIncrement,
+      minimumLotSize,
+      setCurrency,
+      setInstrumentVolume,
+      clearInstrumentVolume,
+    ],
   );
 
   return <SettingsContext value={value}>{children}</SettingsContext>;
