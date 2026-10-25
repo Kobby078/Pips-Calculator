@@ -1,8 +1,11 @@
 import { ACCOUNT_CURRENCIES } from '../constants/currencies';
 import type { InstrumentSpec } from '../constants/instruments';
+import { GOLD_API_ATTRIBUTION_URL, GOLD_API_PROVIDER, GOLD_API_URL, goldFreshness, parseGoldSpot } from './gold-price';
 
 /** Keyless development provider. Do not embed an API key. */
 export const MARKET_DATA_PROVIDER = 'exchangerate.dev' as const;
+
+export type ReferenceProvider = typeof MARKET_DATA_PROVIDER | typeof GOLD_API_PROVIDER;
 
 export const MARKET_DATA_ATTRIBUTION_URL = 'https://exchangerate.dev';
 
@@ -55,12 +58,12 @@ export type MarketQuoteSuccess = {
   price: number;
   quoteCurrency: string;
   baseCurrency: string;
-  provider: typeof MARKET_DATA_PROVIDER;
+  provider: ReferenceProvider;
   effectiveAt: string;
   marketSession: MarketSession;
   freshness: QuoteFreshness;
   source: RateSource;
-  delayed: true;
+  delayed: boolean;
   derived: boolean;
   derivedSymbols: string[];
   notice: string | null;
@@ -75,12 +78,12 @@ export type MarketQuoteFailure = {
   price: null;
   quoteCurrency: string | null;
   baseCurrency: string | null;
-  provider: typeof MARKET_DATA_PROVIDER;
+  provider: ReferenceProvider;
   effectiveAt: null;
   marketSession: null;
   freshness: 'unknown';
   source: null;
-  delayed: true;
+  delayed: boolean;
   derived: false;
   derivedSymbols: [];
   notice: null;
@@ -127,7 +130,17 @@ type BasketFailure = { ok: false; error: QuoteError };
 type BasketResult = BasketSuccess | BasketFailure;
 
 export function supportsReferencePrice(spec: InstrumentSpec | null | undefined): boolean {
-  return spec?.kind === 'forex' && spec.baseCurrency !== spec.quoteCurrency;
+  if (!spec || spec.baseCurrency === spec.quoteCurrency) {
+    return false;
+  }
+  if (spec.kind === 'forex') {
+    return true;
+  }
+  return spec.kind === 'metal' && spec.baseCurrency === 'XAU' && spec.quoteCurrency === 'USD';
+}
+
+export function providerAttributionUrl(provider: ReferenceProvider) {
+  return provider === GOLD_API_PROVIDER ? GOLD_API_ATTRIBUTION_URL : MARKET_DATA_ATTRIBUTION_URL;
 }
 
 /** Currencies requested with a pair so a later account-currency choice can be derived. */
@@ -263,6 +276,9 @@ export function formatQuoteAge(iso: string, now: number): string | null {
   if (!Number.isFinite(parsed)) {
     return null;
   }
+  if (parsed - now > MINUTE_MS) {
+    return 'timestamp is ahead of this device';
+  }
   const minutes = Math.max(0, Math.round((now - parsed) / MINUTE_MS));
   if (minutes < 1) {
     return 'less than a minute ago';
@@ -307,7 +323,9 @@ export function createMarketDataService(options: ServiceOptions = {}): MarketDat
   const staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
   const limits = options.limits ?? { perMinute: 10, perHour: 100 };
   const cache = new Map<string, Basket>();
+  const goldCache = new Map<string, { spot: { price: number; updatedAt: string }; fx: Basket | null; storedAt: number }>();
   const inflight = new Map<string, Promise<BasketResult>>();
+  const goldInflight = new Map<string, Promise<MarketQuote>>();
   const callTimes: number[] = [];
   let blockedUntil = 0;
 
@@ -318,6 +336,9 @@ export function createMarketDataService(options: ServiceOptions = {}): MarketDat
     const instrument = request.instrument.toUpperCase();
     const base = request.baseCurrency.toUpperCase();
     const quote = request.quoteCurrency.toUpperCase();
+    if (instrument === 'XAUUSD' || (base === 'XAU' && quote === 'USD')) {
+      return fetchGoldQuote(request, requestOptions?.refresh === true, requestOptions?.signal);
+    }
     if (!/^[A-Z]{3}$/.test(base) || !/^[A-Z]{3}$/.test(quote) || base === quote) {
       return failure(instrument, quote, 'invalid-response');
     }
@@ -366,6 +387,100 @@ export function createMarketDataService(options: ServiceOptions = {}): MarketDat
       if (inflight.get(key) === task) {
         inflight.delete(key);
       }
+    }
+  }
+
+  async function fetchGoldQuote(
+    request: ReferenceQuoteRequest,
+    refresh: boolean,
+    signal: AbortSignal | undefined,
+  ): Promise<MarketQuote> {
+    const instrument = 'XAUUSD';
+    const related = (request.relatedCurrencies ?? ACCOUNT_CURRENCIES)
+      .map((code) => code.toUpperCase())
+      .filter((code) => code !== 'USD' && /^[A-Z]{3}$/.test(code));
+    const fxSymbols = [...new Set(related)].sort();
+    const key = `XAU|${fxSymbols.join(',')}`;
+    const currentNow = now();
+    if (!refresh) {
+      const cached = goldCache.get(key);
+      if (cached && currentNow - cached.storedAt < cacheTtlMs) {
+        return composeGoldQuote(cached.spot, cached.fx, currentNow);
+      }
+      const pending = goldInflight.get(key);
+      if (pending) {
+        if (signal?.aborted) {
+          return failure(instrument, 'USD', 'cancelled', undefined, GOLD_API_PROVIDER);
+        }
+        return pending;
+      }
+    }
+    if (signal?.aborted) {
+      return failure(instrument, 'USD', 'cancelled', undefined, GOLD_API_PROVIDER);
+    }
+    if (blockedUntil > currentNow || !withinLimits(currentNow)) {
+      return failure(instrument, 'USD', 'rate-limit', undefined, GOLD_API_PROVIDER);
+    }
+
+    const task = requestGold(fxSymbols, key, signal, refresh);
+    goldInflight.set(key, task);
+    try {
+      return await task;
+    } finally {
+      if (goldInflight.get(key) === task) {
+        goldInflight.delete(key);
+      }
+    }
+  }
+
+  async function requestGold(
+    fxSymbols: string[],
+    key: string,
+    signal: AbortSignal | undefined,
+    refresh: boolean,
+  ): Promise<MarketQuote> {
+    callTimes.push(now());
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const onAbort = () => controller.abort();
+    signal?.addEventListener('abort', onAbort);
+    try {
+      const response = await fetchImpl(GOLD_API_URL, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        return failure('XAUUSD', 'USD', response.status === 429 ? 'rate-limit' : 'unavailable', undefined, GOLD_API_PROVIDER);
+      }
+      const payload: unknown = await response.json();
+      const spot = parseGoldSpot(payload, now());
+      if (!spot) {
+        return failure('XAUUSD', 'USD', 'invalid-response', undefined, GOLD_API_PROVIDER);
+      }
+      let fx: Basket | null = null;
+      if (fxSymbols.length > 0 && !signal?.aborted) {
+        const fxKey = `USD|${fxSymbols.join(',')}`;
+        const cachedFx = cache.get(fxKey);
+        if (!refresh && cachedFx && now() - cachedFx.storedAt < cacheTtlMs) {
+          fx = cachedFx;
+        } else if (withinLimits(now())) {
+          const fxResult = await requestBasket('USD', fxSymbols, fxKey, signal);
+          fx = fxResult.ok ? fxResult.basket : null;
+        }
+      }
+      goldCache.set(key, { spot: { price: spot.price, updatedAt: spot.updatedAt }, fx, storedAt: now() });
+      return composeGoldQuote(spot, fx, now());
+    } catch (error) {
+      if (isAbortError(error)) {
+        return failure('XAUUSD', 'USD', signal?.aborted ? 'cancelled' : 'timeout', undefined, GOLD_API_PROVIDER);
+      }
+      if (error instanceof SyntaxError) {
+        return failure('XAUUSD', 'USD', 'invalid-response', undefined, GOLD_API_PROVIDER);
+      }
+      return failure('XAUUSD', 'USD', 'network', undefined, GOLD_API_PROVIDER);
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
 
@@ -445,6 +560,49 @@ export function createMarketDataService(options: ServiceOptions = {}): MarketDat
 }
 
 export const marketData: MarketDataService = createMarketDataService();
+
+function composeGoldQuote(
+  spot: { price: number; updatedAt: string },
+  fx: Basket | null,
+  current: number,
+): MarketQuoteSuccess {
+  const freshness = goldFreshness(spot.updatedAt, current);
+  const legs: Record<string, RateLeg> = {};
+  if (fx) {
+    for (const [symbol, leg] of Object.entries(fx.legs)) {
+      legs[symbol] = {
+        ...leg,
+        stale: leg.stale || isStaleLeg(leg, fx.marketSession, current, DEFAULT_STALE_AFTER_MS),
+      };
+    }
+    if (!legs.USD) {
+      legs.USD = { rate: 1, source: 'live', stale: false, effectiveAt: spot.updatedAt };
+    }
+  }
+  const rates: Record<string, number> = {};
+  for (const [symbol, leg] of Object.entries(legs)) {
+    rates[symbol] = leg.rate;
+  }
+  return {
+    ok: true,
+    instrument: 'XAUUSD',
+    price: spot.price,
+    quoteCurrency: 'USD',
+    baseCurrency: 'XAU',
+    provider: GOLD_API_PROVIDER,
+    effectiveAt: spot.updatedAt,
+    marketSession: 'unknown',
+    freshness,
+    source: 'unknown',
+    delayed: false,
+    derived: false,
+    derivedSymbols: fx?.derivedSymbols ?? [],
+    notice: 'Gold reference price. Not a broker bid or ask.',
+    rates,
+    legs,
+    error: null,
+  };
+}
 
 function quoteFromBasket(
   basket: Basket,
@@ -592,6 +750,7 @@ function failure(
   quoteCurrency: string | null,
   code: QuoteErrorCode,
   retryAfterSeconds?: number,
+  provider: ReferenceProvider = MARKET_DATA_PROVIDER,
 ): MarketQuoteFailure {
   return {
     ok: false,
@@ -599,12 +758,12 @@ function failure(
     price: null,
     quoteCurrency,
     baseCurrency: null,
-    provider: MARKET_DATA_PROVIDER,
+    provider,
     effectiveAt: null,
     marketSession: null,
     freshness: 'unknown',
     source: null,
-    delayed: true,
+    delayed: provider !== GOLD_API_PROVIDER,
     derived: false,
     derivedSymbols: [],
     notice: null,

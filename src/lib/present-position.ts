@@ -49,7 +49,9 @@ export function presentPosition(result: PositionCalculationSuccess): PresentedPo
     metrics: [
       { label: 'Theoretical lots', value: formatLotSize(result.theoreticalLots) },
       { label: 'Broker lots', value: result.brokerLots === null ? 'None' : formatLotSize(result.brokerLots) },
-      { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
+      result.symbol === 'XAUUSD'
+        ? { label: 'Price distance', value: `${formatMoney(result.stopDistance, result.quoteCurrency)}` }
+        : { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
       { label: 'Cash risk', value: formatMoney(result.riskAmount, currency) },
       { label: 'Risk percentage', value: `${formatPips(result.riskPercent)}%` },
       {

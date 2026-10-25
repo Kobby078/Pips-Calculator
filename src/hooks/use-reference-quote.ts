@@ -43,7 +43,7 @@ export function useReferenceQuote(instrument: Instrument | null): ReferenceQuote
   }
 
   useEffect(() => {
-    if (!nextKey || !instrument?.spec || instrument.spec.kind !== 'forex') {
+    if (!nextKey || !instrument?.spec) {
       return;
     }
     const spec = instrument.spec;
@@ -77,7 +77,7 @@ export function useReferenceQuote(instrument: Instrument | null): ReferenceQuote
   }, [instrument, nextKey]);
 
   function refresh() {
-    if (!nextKey || !instrument?.spec || instrument.spec.kind !== 'forex') {
+    if (!nextKey || !instrument?.spec) {
       return;
     }
     const spec = instrument.spec;

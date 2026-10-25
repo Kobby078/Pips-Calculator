@@ -31,13 +31,13 @@ export const JPY_FOREX_PIP_SIZE = 0.01;
 
 /**
  * Starting gold assumptions. Brokers do not share one XAUUSD contract or pip definition.
- * 100 troy ounces per standard lot, and one pip as a 0.01 price change.
+ * Contract size starts at 100 troy ounces. The pip size is only an internal price divisor.
  */
 export const GOLD_CONTRACT_SIZE_OUNCES = 100;
 export const GOLD_PIP_SIZE = 0.01;
 
 const GOLD_ASSUMPTION_NOTE =
-  'Gold uses a starting assumption of 100 troy ounces per standard lot and a pip of 0.01. Brokers define this differently.';
+  'Contract size is a starting assumption of 100 troy ounces per standard lot. Brokers do not share one XAUUSD contract or pip size, so the stop is shown as a USD price distance rather than a universal pip.';
 
 function forex(symbol: string, name: string, baseCurrency: string, quoteCurrency: string): Instrument {
   return {

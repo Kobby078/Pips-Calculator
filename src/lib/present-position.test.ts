@@ -9,6 +9,7 @@ import { calculatePosition, type PositionCalculationInput } from './trading-calc
 import { findInstrument } from '../constants/instruments';
 
 const eurusd = findInstrument('EURUSD');
+const gold = findInstrument('XAUUSD');
 
 function presented(overrides: Partial<PositionCalculationInput> = {}) {
   const result = calculatePosition({
@@ -51,6 +52,26 @@ test('the $1000 EURUSD case is labeled in USD with hundredths on the lot', () =>
   assert.equal(metric(view.metrics, 'Risk / reward'), '1 : 2');
   assert.equal(view.warning, null);
   assert.equal(metric(view.summary, 'Quote to account'), 'USD matches the quote currency');
+});
+
+test('gold shows the USD price distance and the broker-dependent contract note', () => {
+  const view = presented({
+    instrument: gold,
+    balance: 10000,
+    riskValue: 10,
+    entry: 2000,
+    stopLoss: 1990,
+    takeProfit: 'empty',
+  });
+  assert.equal(metric(view.metrics, 'Price distance'), '10.00 USD');
+  assert.equal(metric(view.metrics, 'Estimated loss'), '1000.00 USD');
+  assert.equal(
+    view.metrics.some((row) => row.label === 'Stop distance'),
+    false,
+  );
+  assert.match(view.note ?? '', /100 troy ounces/);
+  assert.match(view.note ?? '', /broker/i);
+  assert.match(view.note ?? '', /USD price distance/);
 });
 
 test('an applied reference conversion is labeled as indicative', () => {

@@ -9,6 +9,7 @@ import {
   createMarketDataService,
   createQuoteRequestGate,
   entryAfterReferenceAction,
+  formatQuoteAge,
   indicativeQuoteToAccount,
   levelsAfterUsePrice,
   supportsReferencePrice,
@@ -349,7 +350,7 @@ test('a response for a previous instrument is ignored after the request gate mov
   assert.equal(jpyQuote.ok && jpyQuote.price, 150.123);
 });
 
-test('repeat loads use the short cache and metals are not reference instruments', async () => {
+test('repeat loads use the short cache and only XAU among metals has a reference price', async () => {
   let calls = 0;
   const service = serviceFor(() => {
     calls += 1;
@@ -366,7 +367,219 @@ test('repeat loads use the short cache and metals are not reference instruments'
   assert.equal(calls, 1);
 
   assert.equal(supportsReferencePrice(findInstrument('EURUSD')?.spec), true);
-  assert.equal(supportsReferencePrice(findInstrument('XAUUSD')?.spec), false);
+  assert.equal(supportsReferencePrice(findInstrument('XAUUSD')?.spec), true);
   assert.equal(supportsReferencePrice(findInstrument('XAGUSD')?.spec), false);
   assert.equal(supportsReferencePrice(null), false);
+});
+
+const GOLD_UPDATED = '2026-10-23T14:08:12Z';
+
+function goldBody(overrides: Record<string, unknown> = {}) {
+  return {
+    symbol: 'XAU',
+    currency: 'USD',
+    price: 3996.89,
+    updatedAt: GOLD_UPDATED,
+    ...overrides,
+  };
+}
+
+function usdBasket(overrides: Record<string, unknown> = {}) {
+  return {
+    result: 'success',
+    base: 'USD',
+    source: 'live',
+    sources: { EUR: 'live' },
+    market_session: 'open',
+    timestamp: EFFECTIVE,
+    data_updated_at: EFFECTIVE,
+    effective_at: { EUR: EFFECTIVE },
+    rates: { EUR: 0.92 },
+    stale: { EUR: false },
+    derived_symbols: [],
+    notice: null,
+    ...overrides,
+  };
+}
+
+const goldRequest = {
+  instrument: 'XAUUSD',
+  baseCurrency: 'XAU',
+  quoteCurrency: 'USD',
+  relatedCurrencies: [] as string[],
+};
+
+test('a valid XAU spot response keeps the price, USD quote, source, and timestamp', async () => {
+  let url = '';
+  const service = serviceFor((input) => {
+    url = String(input);
+    return Promise.resolve(jsonResponse(goldBody()));
+  });
+  const quote = await quoteOf(await service.fetchReferenceQuote(goldRequest));
+  assert.equal(url, 'https://api.gold-api.com/price/XAU');
+  assert.equal(quote.price, 3996.89);
+  assert.equal(quote.quoteCurrency, 'USD');
+  assert.equal(quote.provider, 'gold-api.com');
+  assert.equal(quote.effectiveAt, GOLD_UPDATED);
+  assert.equal(quote.freshness, 'fresh');
+  assert.equal(quote.delayed, false);
+  assert.match(quote.notice ?? '', /Not a broker bid or ask/);
+});
+
+test('missing, invalid, and non-USD gold payloads do not invent a price', async () => {
+  const bodies = [
+    { symbol: 'XAU', currency: 'USD', updatedAt: GOLD_UPDATED },
+    { symbol: 'XAU', currency: 'USD', price: 0, updatedAt: GOLD_UPDATED },
+    { symbol: 'XAU', currency: 'USD', price: -5, updatedAt: GOLD_UPDATED },
+    { symbol: 'XAU', currency: 'USD', price: '3996.89', updatedAt: GOLD_UPDATED },
+    { symbol: 'XAU', currency: 'EUR', price: 3996.89, updatedAt: GOLD_UPDATED },
+    { symbol: 'XAG', currency: 'USD', price: 30, updatedAt: GOLD_UPDATED },
+    { symbol: 'XAU', currency: 'USD', price: 3996.89, updatedAt: 'yesterday' },
+  ];
+  for (const body of bodies) {
+    const service = serviceFor(() => Promise.resolve(jsonResponse(body)));
+    const quote = await service.fetchReferenceQuote(goldRequest);
+    assert.equal(quote.ok, false);
+    assert.equal(quote.price, null);
+    if (!quote.ok) {
+      assert.equal(quote.error.code, 'invalid-response');
+      assert.equal(quote.provider, 'gold-api.com');
+    }
+  }
+});
+
+test('an old or future gold timestamp stays available and is marked stale', async () => {
+  const oldService = serviceFor(() =>
+    Promise.resolve(jsonResponse(goldBody({ updatedAt: '2026-10-23T12:00:00Z' }))),
+  );
+  const oldQuote = await quoteOf(await oldService.fetchReferenceQuote(goldRequest));
+  assert.equal(oldQuote.price, 3996.89);
+  assert.equal(oldQuote.freshness, 'stale');
+
+  const futureService = serviceFor(() =>
+    Promise.resolve(jsonResponse(goldBody({ updatedAt: '2026-10-23T16:00:00Z' }))),
+  );
+  const futureQuote = await quoteOf(await futureService.fetchReferenceQuote(goldRequest));
+  assert.equal(futureQuote.price, 3996.89);
+  assert.equal(futureQuote.freshness, 'stale');
+  assert.equal(formatQuoteAge(futureQuote.effectiveAt, NOW), 'timestamp is ahead of this device');
+});
+
+test('a cached gold quote becomes stale from its timestamp without another request', async () => {
+  let calls = 0;
+  let clock = NOW;
+  const service = serviceFor(
+    () => {
+      calls += 1;
+      return Promise.resolve(jsonResponse(goldBody({ updatedAt: '2026-10-23T13:58:12Z' })));
+    },
+    { now: () => clock, cacheTtlMs: 10 * 60 * 1000 },
+  );
+  const first = await quoteOf(await service.fetchReferenceQuote(goldRequest));
+  assert.equal(first.freshness, 'fresh');
+  clock = NOW + 6 * 60 * 1000;
+  const second = await quoteOf(await service.fetchReferenceQuote(goldRequest));
+  assert.equal(calls, 1);
+  assert.equal(second.price, 3996.89);
+  assert.equal(second.freshness, 'stale');
+});
+
+test('gold timeout and network failure leave the price empty', async () => {
+  const timingOut = serviceFor(
+    (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      }),
+    { timeoutMs: 20 },
+  );
+  const timed = await timingOut.fetchReferenceQuote(goldRequest);
+  assert.equal(timed.ok, false);
+  assert.equal(timed.price, null);
+  if (!timed.ok) {
+    assert.equal(timed.error.code, 'timeout');
+  }
+
+  const offline = serviceFor(() => Promise.reject(new TypeError('network')));
+  const failed = await offline.fetchReferenceQuote(goldRequest);
+  assert.equal(failed.ok, false);
+  assert.equal(failed.price, null);
+  if (!failed.ok) {
+    assert.equal(failed.error.code, 'network');
+  }
+});
+
+test('using a gold price fills entry only, and a late gold response is ignored after a switch', async () => {
+  const typed = { entry: '2650.50', stopLoss: '2640', takeProfit: '2680' };
+  assert.equal(entryAfterReferenceAction(typed.entry, 3996.89, 'refresh'), '2650.50');
+  const used = levelsAfterUsePrice(typed, 3996.89);
+  assert.equal(used.entry, '3996.89');
+  assert.equal(used.stopLoss, '2640');
+  assert.equal(used.takeProfit, '2680');
+
+  let releaseGold: (response: Response) => void = () => {};
+  const goldPending = new Promise<Response>((resolve) => {
+    releaseGold = resolve;
+  });
+  const service = serviceFor((input) => {
+    if (String(input).includes('gold-api.com')) {
+      return goldPending;
+    }
+    return Promise.resolve(jsonResponse(latestBody()));
+  });
+  const gate = createQuoteRequestGate();
+  const goldId = gate.begin();
+  const pendingGold = service.fetchReferenceQuote(goldRequest);
+  const euroId = gate.begin();
+  const euroQuote = await service.fetchReferenceQuote({
+    instrument: 'EURUSD',
+    baseCurrency: 'EUR',
+    quoteCurrency: 'USD',
+    relatedCurrencies: [],
+  });
+  releaseGold(jsonResponse(goldBody()));
+  const lateGold = await pendingGold;
+  assert.equal(gate.accept(goldId.id), false);
+  assert.equal(gate.accept(euroId.id), true);
+  assert.equal(euroQuote.ok && euroQuote.instrument, 'EURUSD');
+  assert.equal(lateGold.ok && lateGold.instrument, 'XAUUSD');
+});
+
+test('a non-USD gold account uses a USD basket rate and does not invent one when that request fails', async () => {
+  const service = serviceFor((input) => {
+    const url = String(input);
+    if (url.includes('gold-api.com')) {
+      return Promise.resolve(jsonResponse(goldBody()));
+    }
+    return Promise.resolve(jsonResponse(usdBasket()));
+  });
+  const quote = await quoteOf(
+    await service.fetchReferenceQuote({
+      ...goldRequest,
+      relatedCurrencies: ['EUR'],
+    }),
+  );
+  const conversion = indicativeQuoteToAccount(quote.baseCurrency, quote.legs, quote.quoteCurrency, 'EUR', quote.derivedSymbols);
+  assert.equal(conversion?.rate, 0.92);
+
+  const failedFx = serviceFor((input) => {
+    if (String(input).includes('gold-api.com')) {
+      return Promise.resolve(jsonResponse(goldBody()));
+    }
+    return Promise.resolve(jsonResponse({ result: 'error' }, 503));
+  });
+  const priceOnly = await quoteOf(
+    await failedFx.fetchReferenceQuote({
+      ...goldRequest,
+      relatedCurrencies: ['EUR'],
+    }),
+  );
+  assert.equal(priceOnly.price, 3996.89);
+  assert.equal(
+    indicativeQuoteToAccount(priceOnly.baseCurrency, priceOnly.legs, priceOnly.quoteCurrency, 'EUR'),
+    null,
+  );
 });

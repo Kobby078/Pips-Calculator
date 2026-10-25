@@ -5,6 +5,7 @@ import { test } from 'node:test';
 
 import { calculationFingerprint } from './calculation-fingerprint';
 import {
+  describeVolumeGrid,
   lotSettingsSummary,
   parseStoredSettings,
   resolveLotSettings,
@@ -100,6 +101,42 @@ test('a 0.01 minimum with a 0.001 step rounds down and reports the minimum risk'
     assert.equal(below.brokerLots, null);
     assert.ok(Math.abs(below.minimumPositionRisk - 2) < 1e-8);
     assert.ok(below.theoreticalLots < below.minimumLot);
+  }
+});
+
+test('volume grids flag incompatible steps and leave differing pairs unverified', () => {
+  const matched = describeVolumeGrid('0.001', '0.001');
+  assert.equal(matched.kind, 'matched');
+  assert.deepEqual(matched.samples, ['0.001', '0.002', '0.003']);
+  assert.match(matched.message, /Confirm this pair with your broker/);
+
+  const unverified = describeVolumeGrid('0.01', '0.001');
+  assert.equal(unverified.kind, 'unverified');
+  assert.match(unverified.message, /may not allow/);
+  assert.deepEqual(unverified.samples, ['0.01', '0.011', '0.012']);
+
+  const incompatible = describeVolumeGrid('0.001', '0.01');
+  assert.equal(incompatible.kind, 'incompatible');
+  assert.deepEqual(incompatible.samples, []);
+  assert.match(incompatible.message, /No position size is recommended/);
+
+  const sized = calculatePosition({
+    instrument: eurusd,
+    direction: 'buy',
+    balance: 100,
+    riskMode: 'percent',
+    riskValue: 1,
+    entry: 1.1,
+    stopLoss: 1.098,
+    takeProfit: 'empty',
+    accountCurrency: 'USD',
+    minimumLot: 0.001,
+    lotIncrement: 0.01,
+    manualQuoteToAccountRate: 'empty',
+  });
+  assert.equal(sized.ok, true);
+  if (sized.ok) {
+    assert.ok(sized.actualLoss === null || sized.actualLoss <= sized.riskAmount + 1e-8);
   }
 });
 

@@ -274,6 +274,64 @@ test('gold uses the ounce contract and does not borrow the forex pip', () => {
   assert.equal(needsRate.ok, false);
 });
 
+test('gold sizing uses the 100-ounce contract, a USD price distance, and an entered conversion', () => {
+  const micro = success({
+    instrument: gold,
+    balance: 100,
+    riskValue: 1,
+    entry: 2000,
+    stopLoss: 1990,
+    minimumLot: 0.001,
+    lotIncrement: 0.001,
+  });
+  assert.equal(micro.stopDistance, 10);
+  assert.equal(micro.lossPerStandardLot, 1000);
+  assert.equal(micro.theoreticalLots, 0.001);
+  assert.equal(micro.brokerLots, 0.001);
+  assert.equal(micro.actualLoss, 1);
+  assert.ok(micro.actualLoss !== null && micro.actualLoss <= micro.riskAmount);
+
+  const belowMinimum = success({
+    instrument: gold,
+    balance: 100,
+    riskValue: 1,
+    entry: 2000,
+    stopLoss: 1990,
+    minimumLot: 0.01,
+    lotIncrement: 0.01,
+  });
+  assert.equal(belowMinimum.brokerLots, null);
+  assert.equal(belowMinimum.minimumPositionRisk, 10);
+
+  const missing = calculatePosition(
+    input({
+      instrument: gold,
+      accountCurrency: 'EUR',
+      balance: 1000,
+      riskValue: 1,
+      entry: 2000,
+      stopLoss: 1990,
+    }),
+  );
+  assert.equal(missing.ok, false);
+
+  const converted = success({
+    instrument: gold,
+    accountCurrency: 'EUR',
+    balance: 1000,
+    riskValue: 1,
+    entry: 2000,
+    stopLoss: 1990,
+    minimumLot: 0.01,
+    lotIncrement: 0.01,
+    manualQuoteToAccountRate: 0.9,
+  });
+  assert.equal(converted.quoteToAccountRate, 0.9);
+  assert.notEqual(converted.quoteToAccountRate, 1 / 2000);
+  assert.equal(converted.lossPerStandardLot, 900);
+  assert.ok(converted.actualLoss !== null && converted.actualLoss <= converted.riskAmount);
+});
+
 test('unconfigured instruments do not receive an invented size', () => {
   for (const instrument of [silver, us30]) {
     const result = calculatePosition(input({ instrument, balance: 10_000 }));

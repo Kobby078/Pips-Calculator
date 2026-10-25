@@ -6,6 +6,7 @@ import { Palette, Spacing } from '@/constants/theme';
 import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 import {
   COMMON_MINIMUM_LOTS,
+  describeVolumeGrid,
   minimumLotChoice,
   type InstrumentVolume,
   type ResolvedLotSettings,
@@ -25,6 +26,7 @@ export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: Brok
     resolved.valid || isPositiveDecimal(resolved.minimumLot) ? undefined : 'Enter a minimum greater than zero.';
   const incrementError =
     resolved.valid || isPositiveDecimal(resolved.lotIncrement) ? undefined : 'Enter an increment greater than zero.';
+  const grid = describeVolumeGrid(resolved.minimumLot, resolved.lotIncrement);
 
   function selectPreset(minimumLot: string) {
     setCustomOpen(false);
@@ -35,8 +37,8 @@ export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: Brok
     <View style={styles.wrap}>
       <Text style={styles.question}>{`What's your broker's minimum lot size for ${symbol}?`}</Text>
       <Text style={styles.hint}>
-        Minimum lot is the smallest size that broker will accept. Lot increment is the step above it, and the two
-        do not have to match. Sizes are rounded down so the trade stays inside your risk.
+        Minimum lot is the smallest size that broker will accept. Lot increment is the step above it. A minimum
+        that is not a whole number of steps is incompatible, and no size is recommended.
       </Text>
       <View style={styles.chips}>
         {COMMON_MINIMUM_LOTS.map((value) => {
@@ -89,6 +91,7 @@ export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: Brok
         hint="Example: 0.01 or 0.001. This step can be smaller than the minimum."
         error={incrementError}
       />
+      <Text style={grid.kind === 'matched' ? styles.hint : styles.error}>{grid.message}</Text>
       <Text style={styles.hint}>
         {resolved.source === 'instrument'
           ? `Using the minimum and increment saved for ${symbol}.`

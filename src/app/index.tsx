@@ -14,7 +14,7 @@ import { Palette, Spacing } from '@/constants/theme';
 import { useReferenceQuote } from '@/hooks/use-reference-quote';
 import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
-import { lotSettingsSummary, resolveLotSettings } from '@/lib/lot-settings';
+import { describeVolumeGrid, lotSettingsSummary, resolveLotSettings } from '@/lib/lot-settings';
 import { markIndicativeConversion, presentPosition, type ResultRow } from '@/lib/present-position';
 import {
   conversionAfterReferenceAction,
@@ -165,6 +165,17 @@ export default function CalculatorScreen() {
       return;
     }
 
+    const grid = describeVolumeGrid(lots.minimumLot, lots.lotIncrement);
+    if (grid.kind === 'incompatible') {
+      setPanel({
+        inputKey,
+        status: 'blocked',
+        title: 'Cannot calculate',
+        body: grid.message,
+      });
+      return;
+    }
+
     const result = calculatePosition({
       instrument: selected ?? null,
       direction,
@@ -200,6 +211,7 @@ export default function CalculatorScreen() {
     }
 
     const presented = presentPosition(result);
+    const note = [presented.note, grid.kind === 'unverified' ? grid.message : null].filter(Boolean).join(' ');
     setErrors({});
     setPanel({
       inputKey,
@@ -207,7 +219,7 @@ export default function CalculatorScreen() {
       title: presented.title,
       body: presented.body,
       warning: presented.warning,
-      note: presented.note,
+      note: note || null,
       summary: [
         ...(conversionIsIndicative ? markIndicativeConversion(presented.summary) : presented.summary),
         lotSettingsSummary(lots.source, result.symbol),
@@ -240,7 +252,7 @@ export default function CalculatorScreen() {
     <ScreenScroll>
       <ScreenHeader
         title="Risk Calculator"
-        subtitle="Set the trade levels you want to size. FX references are delayed, not broker prices."
+        subtitle="Set the trade levels you want to size. Reference prices are not broker prices."
       />
 
       <View style={styles.card}>
@@ -263,6 +275,9 @@ export default function CalculatorScreen() {
             <Text style={styles.chevron}>{instrumentOpen ? 'Hide' : 'Choose'}</Text>
           </Pressable>
           {errors.instrument ? <Text style={styles.error}>{errors.instrument}</Text> : null}
+          {selected?.spec?.assumptionNote ? (
+            <Text style={styles.selectorHint}>{selected.spec.assumptionNote}</Text>
+          ) : null}
           {instrumentOpen ? (
             <View style={styles.instrumentList}>
               {INSTRUMENTS.map((item) => {
@@ -359,6 +374,9 @@ export default function CalculatorScreen() {
 
         <ReferencePrice
           view={reference}
+          variant={
+            selected?.spec?.baseCurrency === 'XAU' && selected?.spec?.quoteCurrency === 'USD' ? 'gold' : 'forex'
+          }
           onRefresh={reference.refresh}
           onUsePrice={onUsePrice}
           indicative={needsConversion ? indicative : null}

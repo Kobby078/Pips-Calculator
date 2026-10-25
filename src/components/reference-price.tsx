@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExternalLink } from '@/components/external-link';
 import { Palette, Spacing } from '@/constants/theme';
 import type { ReferenceQuoteView } from '@/hooks/use-reference-quote';
+import { GOLD_API_PROVIDER } from '@/services/gold-price';
 import {
   formatQuoteAge,
   formatQuoteTimestamp,
@@ -10,7 +11,9 @@ import {
   MARKET_DATA_ATTRIBUTION_URL,
   MARKET_DATA_PROVIDER,
   marketSessionLabel,
+  providerAttributionUrl,
   type IndicativeConversion,
+  type ReferenceProvider,
 } from '@/services/market-data';
 
 type ReferencePriceProps = {
@@ -21,6 +24,7 @@ type ReferencePriceProps = {
   accountCurrency: string;
   quoteCurrency: string | null;
   onUseRate: () => void;
+  variant?: 'forex' | 'gold';
 };
 
 export function ReferencePrice({
@@ -31,6 +35,7 @@ export function ReferencePrice({
   accountCurrency,
   quoteCurrency,
   onUseRate,
+  variant = 'forex',
 }: ReferencePriceProps) {
   if (view.status === 'idle') {
     return null;
@@ -48,18 +53,23 @@ export function ReferencePrice({
   }
 
   const quote = view.quote?.ok ? view.quote : null;
+  const provider: ReferenceProvider = quote?.provider ?? (variant === 'gold' ? GOLD_API_PROVIDER : MARKET_DATA_PROVIDER);
+  const gold = provider === GOLD_API_PROVIDER;
   const age = quote && view.observedAt !== null ? formatQuoteAge(quote.effectiveAt, view.observedAt) : null;
   const busy = view.status === 'loading';
   const sessionClosed = quote?.marketSession === 'weekend' || quote?.marketSession === 'interbank_closed';
+  const sourceUrl = gold ? providerAttributionUrl(provider) : MARKET_DATA_ATTRIBUTION_URL;
 
   return (
     <View style={styles.panel}>
       <View style={styles.titleRow}>
         <Text style={styles.label}>Reference price</Text>
-        <Text style={styles.delayed}>Delayed about 15 minutes</Text>
+        <Text style={styles.delayed}>{gold ? 'Spot reference' : 'Delayed about 15 minutes'}</Text>
       </View>
       <Text style={styles.body}>
-        Free FX reference rates can differ from MT5 broker prices. This is not a bid or ask.
+        {gold
+          ? 'Gold reference prices can differ from MT5 broker prices. This is not a bid or ask.'
+          : 'Free FX reference rates can differ from MT5 broker prices. This is not a bid or ask.'}
       </Text>
 
       {busy && !quote ? <Text style={styles.price}>Loading reference price…</Text> : null}
@@ -70,7 +80,9 @@ export function ReferencePrice({
           {age ? ` · ${age}` : ''}
         </Text>
       ) : null}
-      {quote ? <Text style={styles.meta}>{marketSessionLabel(quote.marketSession)}</Text> : null}
+      {quote && quote.marketSession !== 'unknown' ? (
+        <Text style={styles.meta}>{marketSessionLabel(quote.marketSession)}</Text>
+      ) : null}
       {quote?.freshness === 'stale' ? <Text style={styles.warning}>This quote is stale.</Text> : null}
       {sessionClosed ? <Text style={styles.warning}>The market is closed. The last reference rate is shown.</Text> : null}
       {quote?.derived ? <Text style={styles.meta}>This pair is triangulated from other reference rates.</Text> : null}
@@ -79,8 +91,8 @@ export function ReferencePrice({
 
       <View style={styles.sourceRow}>
         <Text style={styles.meta}>Source:</Text>
-        <ExternalLink href={MARKET_DATA_ATTRIBUTION_URL}>
-          <Text style={styles.link}>{MARKET_DATA_PROVIDER}</Text>
+        <ExternalLink href={sourceUrl}>
+          <Text style={styles.link}>{provider}</Text>
         </ExternalLink>
       </View>
 

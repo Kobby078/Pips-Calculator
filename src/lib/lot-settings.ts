@@ -50,6 +50,71 @@ export function resolveLotSettings(input: {
   };
 }
 
+export type VolumeGridKind = 'matched' | 'unverified' | 'incompatible' | 'invalid';
+
+export type VolumeGridDescription = {
+  kind: VolumeGridKind;
+  message: string;
+  /** The first sizes on this grid. Empty when the pair cannot form one. */
+  samples: string[];
+};
+
+/**
+ * A broker volume grid is minimum + whole steps. Differing numbers are not assumed to be allowed.
+ * A minimum that is not a whole number of steps cannot describe that grid.
+ */
+export function describeVolumeGrid(minimum: string, increment: string): VolumeGridDescription {
+  if (!isPositiveDecimal(minimum) || !isPositiveDecimal(increment)) {
+    return {
+      kind: 'invalid',
+      message: 'Enter a minimum lot and a lot increment greater than zero.',
+      samples: [],
+    };
+  }
+  const minimumValue = Number(minimum);
+  const stepValue = Number(increment);
+  const scale = 10 ** Math.max(decimalPlaces(minimumValue), decimalPlaces(stepValue));
+  const minimumUnits = Math.round(minimumValue * scale);
+  const stepUnits = Math.round(stepValue * scale);
+  if (minimumUnits <= 0 || stepUnits <= 0 || minimumUnits % stepUnits !== 0) {
+    return {
+      kind: 'incompatible',
+      message: `${minimum} is not a whole number of ${increment} steps, so these numbers do not describe one volume grid. No position size is recommended until they line up.`,
+      samples: [],
+    };
+  }
+  const samples = [0, 1, 2].map((step) => formatVolume((minimumUnits + step * stepUnits) / scale));
+  if (Math.abs(minimumValue - stepValue) < 1e-12) {
+    return {
+      kind: 'matched',
+      message: `Sizes can step by ${formatVolume(stepValue)} from ${formatVolume(minimumValue)}. Confirm this pair with your broker. It is not a verified specification.`,
+      samples,
+    };
+  }
+  return {
+    kind: 'unverified',
+    message: `Minimum ${formatVolume(minimumValue)} and step ${formatVolume(stepValue)} differ. These numbers imply ${samples.join(', ')}. Your broker may not allow that combination.`,
+    samples,
+  };
+}
+
+function formatVolume(value: number): string {
+  return value
+    .toFixed(8)
+    .replace(/(\.\d*?)0+$/, '$1')
+    .replace(/\.$/, '');
+}
+
+function decimalPlaces(value: number): number {
+  const text = value.toString().toLowerCase();
+  if (text.includes('e-')) {
+    const [coefficient, exponent] = text.split('e-');
+    const fraction = coefficient.split('.')[1]?.length ?? 0;
+    return fraction + Number(exponent);
+  }
+  return text.split('.')[1]?.length ?? 0;
+}
+
 export function minimumLotChoice(value: string): CommonMinimumLot | 'custom' {
   const parsed = Number(value);
   if (!isPositiveDecimal(value) || !Number.isFinite(parsed)) {
