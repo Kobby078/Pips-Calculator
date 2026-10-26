@@ -1,14 +1,18 @@
-import { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet } from 'react-native';
+import { forwardRef, type ComponentRef, type ReactNode } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette, Spacing } from '@/constants/theme';
 
 type ScreenScrollProps = {
   children: ReactNode;
+  footer?: ReactNode;
 };
 
-export function ScreenScroll({ children }: ScreenScrollProps) {
+export const ScreenScroll = forwardRef<ComponentRef<typeof ScrollView>, ScreenScrollProps>(function ScreenScroll(
+  { children, footer },
+  ref,
+) {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, StatusBar.currentHeight ?? 0);
 
@@ -16,28 +20,37 @@ export function ScreenScroll({ children }: ScreenScrollProps) {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: topInset + Spacing.three,
-            paddingBottom: Spacing.five,
-          },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}>
-        {children}
-      </ScrollView>
+      <View style={styles.flex}>
+        <ScrollView
+          ref={ref}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: topInset + Spacing.three,
+              paddingBottom: footer ? Spacing.four : Spacing.five,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}>
+          {children}
+        </ScrollView>
+      </View>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </KeyboardAvoidingView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
     backgroundColor: Palette.background,
+  },
+  scroll: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
   },
   content: {
     paddingHorizontal: Spacing.three,
@@ -45,5 +58,15 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     width: '100%',
     alignSelf: 'center',
+  },
+  footer: {
+    flexShrink: 0,
+    width: '100%',
+    borderTopWidth: 1,
+    borderTopColor: Palette.border,
+    backgroundColor: Palette.background,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.two,
   },
 });

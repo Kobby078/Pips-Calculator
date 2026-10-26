@@ -10,6 +10,7 @@ import {
   parseStoredSettings,
   resolveLotSettings,
   serializeSettings,
+  withoutTradePreferences,
   type StoredCalculatorSettings,
 } from './lot-settings';
 import { calculatePosition } from './trading-calculations';
@@ -220,6 +221,71 @@ test('saved settings round-trip and keep each instrument separate', () => {
   assert.equal(repaired?.currency, 'USD');
   assert.equal(repaired?.minimumLotSize, '0.01');
   assert.deepEqual(repaired?.instrumentLots, {});
+});
+
+test('trade preferences restore and reset without removing broker settings or prices', () => {
+  const stored: StoredCalculatorSettings = {
+    currency: 'GBP',
+    minimumLotSize: '0.10',
+    lotIncrement: '0.01',
+    instrumentLots: {
+      XAUUSD: { minimumLot: '0.001', lotIncrement: '0.001' },
+    },
+    preferences: {
+      instrument: 'XAUUSD',
+      balance: '2500',
+      riskMode: 'percent',
+      riskValue: '1',
+    },
+  };
+  assert.deepEqual(parseStoredSettings(serializeSettings(stored)), stored);
+
+  const legacy = parseStoredSettings(
+    serializeSettings({
+      currency: 'CHF',
+      minimumLotSize: '0.10',
+      lotIncrement: '0.01',
+      instrumentLots: { EURUSD: { minimumLot: '0.001', lotIncrement: '0.001' } },
+    }),
+  );
+  assert.equal(legacy?.preferences, undefined);
+  assert.equal(legacy?.currency, 'CHF');
+  assert.equal(legacy?.instrumentLots.EURUSD?.minimumLot, '0.001');
+
+  const reset = withoutTradePreferences(stored);
+  assert.equal(reset.currency, 'GBP');
+  assert.equal(reset.minimumLotSize, '0.10');
+  assert.deepEqual(reset.instrumentLots, stored.instrumentLots);
+  assert.deepEqual(reset.preferences, {
+    instrument: null,
+    balance: '',
+    riskMode: 'percent',
+    riskValue: '',
+  });
+
+  const noisy = parseStoredSettings(
+    JSON.stringify({
+      currency: 'USD',
+      minimumLotSize: '0.01',
+      lotIncrement: '0.01',
+      instrumentLots: { EURUSD: { minimumLot: '0.01', lotIncrement: '0.01' } },
+      preferences: {
+        instrument: 'NOTREAL',
+        balance: '10000',
+        riskMode: 'amount',
+        riskValue: '25',
+        entry: '1.10000',
+        referencePrice: 3992.899902,
+      },
+    }),
+  );
+  assert.equal(noisy?.preferences?.instrument, null);
+  assert.equal(noisy?.preferences?.balance, '10000');
+  assert.equal(noisy?.preferences?.riskMode, 'amount');
+  assert.equal(noisy?.preferences?.riskValue, '25');
+  assert.deepEqual(Object.keys(noisy?.preferences ?? {}).sort(), ['balance', 'instrument', 'riskMode', 'riskValue']);
+  assert.equal(noisy?.instrumentLots.EURUSD?.minimumLot, '0.01');
+  assert.equal(noisy?.instrumentLots.EURUSD?.lotIncrement, '0.01');
 });
 
 function fingerprint(minimumLotSize: string, lotIncrement: string, lotSource: 'global' | 'instrument'): string {

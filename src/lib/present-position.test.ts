@@ -42,10 +42,16 @@ function metric(rows: { label: string; value: string }[], label: string): string
 
 test('the $1000 EURUSD case is labeled in USD with hundredths on the lot', () => {
   const view = presented();
+  assert.equal(view.lotFits, true);
+  assert.equal(view.recommendedLot, '0.10');
+  assert.match(view.lotDetail, /lot step/);
   assert.equal(metric(view.metrics, 'Theoretical lots'), '0.10');
-  assert.equal(metric(view.metrics, 'Broker lots'), '0.10');
+  assert.equal(
+    view.metrics.some((row) => row.label === 'Broker lots'),
+    false,
+  );
   assert.equal(metric(view.metrics, 'Stop distance'), '20 pips');
-  assert.equal(metric(view.metrics, 'Cash risk'), '20.00 USD');
+  assert.equal(metric(view.metrics, 'Risk budget'), '20.00 USD');
   assert.equal(metric(view.metrics, 'Risk percentage'), '2%');
   assert.equal(metric(view.metrics, 'Estimated loss'), '20.00 USD');
   assert.equal(metric(view.metrics, 'Potential reward'), '40.00 USD');
@@ -92,14 +98,38 @@ test('a $100 1% EURUSD position shows 0.005 lots and about $2 at the minimum', (
     stopLoss: 1.098,
     takeProfit: 'empty',
   });
+  assert.equal(view.lotFits, false);
+  assert.equal(view.recommendedLot, null);
   assert.equal(metric(view.metrics, 'Theoretical lots'), '0.005');
-  assert.equal(metric(view.metrics, 'Broker lots'), 'None');
-  assert.equal(metric(view.metrics, 'Cash risk'), '1.00 USD');
+  assert.equal(
+    view.metrics.some((row) => row.value === '0.01' || row.value === 'None'),
+    false,
+  );
+  assert.equal(metric(view.metrics, 'Risk budget'), '1.00 USD');
   assert.equal(metric(view.metrics, 'Estimated loss'), '—');
   assert.equal(metric(view.metrics, 'Potential reward'), '—');
-  assert.match(view.body, /0\.01 lots/);
-  assert.match(view.body, /2\.00 USD/);
-  assert.match(view.body, /1\.00 USD/);
+  assert.match(view.title, /minimum lot/);
+  assert.match(view.lotDetail, /0\.01 lots/);
+  assert.match(view.lotDetail, /2\.00 USD/);
+  assert.match(view.lotDetail, /1\.00 USD/);
+});
+
+test('rounding down keeps the risk budget separate from the estimated loss', () => {
+  const view = presented({
+    balance: 1000,
+    riskMode: 'amount',
+    riskValue: 3.08,
+    entry: 1.1,
+    stopLoss: 1.098,
+    takeProfit: 'empty',
+    minimumLot: 0.01,
+    lotIncrement: 0.001,
+  });
+  assert.equal(view.recommendedLot, '0.015');
+  assert.equal(metric(view.metrics, 'Theoretical lots'), '0.0154');
+  assert.equal(metric(view.metrics, 'Risk budget'), '3.08 USD');
+  assert.equal(metric(view.metrics, 'Estimated loss'), '3.00 USD');
+  assert.equal(metric(view.metrics, 'Potential reward'), '—');
 });
 
 test('changing account currency, minimum lot, or increment marks a result stale without rewriting the balance', () => {
@@ -171,6 +201,42 @@ test('changing account currency, minimum lot, or increment marks a result stale 
       accountCurrency: 'USD',
       minimumLotSize: '0.01',
       lotIncrement: '0.02',
+      lotSource: 'global',
+    }),
+  );
+  assert.notEqual(
+    base,
+    calculationFingerprint({
+      instrument: 'EURUSD',
+      direction: 'buy',
+      balance,
+      riskMode: 'amount',
+      riskValue: '20',
+      entry: '1.08500',
+      stopLoss: '1.08300',
+      takeProfit: '1.08900',
+      conversionRate: '',
+      accountCurrency: 'USD',
+      minimumLotSize: '0.01',
+      lotIncrement: '0.01',
+      lotSource: 'global',
+    }),
+  );
+  assert.notEqual(
+    base,
+    calculationFingerprint({
+      instrument: 'EURUSD',
+      direction: 'buy',
+      balance,
+      riskMode: 'percent',
+      riskValue: '2',
+      entry: '1.09000',
+      stopLoss: '1.08300',
+      takeProfit: '1.08900',
+      conversionRate: '',
+      accountCurrency: 'USD',
+      minimumLotSize: '0.01',
+      lotIncrement: '0.01',
       lotSource: 'global',
     }),
   );

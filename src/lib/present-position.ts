@@ -10,19 +10,23 @@ export type PresentedPosition = {
   body: string;
   warning: string | null;
   note: string | null;
+  /** False when the risk budget cannot buy the minimum lot. */
+  lotFits: boolean;
+  /** Broker-step size inside the risk budget. Null when no supported lot fits. */
+  recommendedLot: string | null;
+  lotDetail: string;
   summary: ResultRow[];
   metrics: ResultRow[];
 };
 
 const EMPTY_METRICS: ResultRow[] = [
-  { label: 'Theoretical lots', value: '—' },
-  { label: 'Broker lots', value: '—' },
-  { label: 'Stop distance', value: '—' },
-  { label: 'Cash risk', value: '—' },
-  { label: 'Risk percentage', value: '—' },
+  { label: 'Risk budget', value: '—' },
   { label: 'Estimated loss', value: '—' },
+  { label: 'Stop distance', value: '—' },
+  { label: 'Theoretical lots', value: '—' },
   { label: 'Potential reward', value: '—' },
   { label: 'Risk / reward', value: '—' },
+  { label: 'Risk percentage', value: '—' },
 ];
 
 export function emptyMetricRows(): ResultRow[] {
@@ -32,37 +36,42 @@ export function emptyMetricRows(): ResultRow[] {
 export function presentPosition(result: PositionCalculationSuccess): PresentedPosition {
   const currency = result.accountCurrency;
   const supported = result.brokerLots !== null && result.actualLoss !== null;
+  const blockedReason = `No supported lot size fits this risk. The minimum position of ${formatLotSize(result.minimumLot)} lots would risk ${formatMoney(result.minimumPositionRisk, currency)}, which is above the ${formatMoney(result.riskAmount, currency)} budget.`;
   const body = supported
     ? 'Loss and reward use the broker lot, rounded down to the lot step. Nothing larger than the chosen risk is suggested.'
-    : `No supported lot size fits this risk. The minimum position of ${formatLotSize(result.minimumLot)} lots would risk ${formatMoney(result.minimumPositionRisk, currency)}, which is above the ${formatMoney(result.riskAmount, currency)} budget.`;
+    : blockedReason;
 
   return {
     title: supported ? 'Position sized' : 'Risk budget is below the minimum lot',
     body,
     warning: result.warning?.message ?? null,
     note: result.assumptionNote,
+    lotFits: supported,
+    recommendedLot: supported && result.brokerLots !== null ? formatLotSize(result.brokerLots) : null,
+    lotDetail: supported
+      ? 'Largest size on the saved lot step that stays inside the risk budget.'
+      : blockedReason,
     summary: [
       { label: 'Instrument', value: result.symbol },
       { label: 'Direction', value: result.direction === 'buy' ? 'Buy' : 'Sell' },
       { label: 'Quote to account', value: conversionLabel(result) },
     ],
     metrics: [
-      { label: 'Theoretical lots', value: formatLotSize(result.theoreticalLots) },
-      { label: 'Broker lots', value: result.brokerLots === null ? 'None' : formatLotSize(result.brokerLots) },
-      result.symbol === 'XAUUSD'
-        ? { label: 'Price distance', value: `${formatMoney(result.stopDistance, result.quoteCurrency)}` }
-        : { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
-      { label: 'Cash risk', value: formatMoney(result.riskAmount, currency) },
-      { label: 'Risk percentage', value: `${formatPips(result.riskPercent)}%` },
+      { label: 'Risk budget', value: formatMoney(result.riskAmount, currency) },
       {
         label: 'Estimated loss',
         value: result.actualLoss === null ? '—' : formatMoney(result.actualLoss, currency),
       },
+      result.symbol === 'XAUUSD'
+        ? { label: 'Price distance', value: `${formatMoney(result.stopDistance, result.quoteCurrency)}` }
+        : { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
+      { label: 'Theoretical lots', value: formatLotSize(result.theoreticalLots) },
       {
         label: 'Potential reward',
         value: result.reward === null ? '—' : formatMoney(result.reward, currency),
       },
       { label: 'Risk / reward', value: formatRiskReward(result.riskRewardRatio) },
+      { label: 'Risk percentage', value: `${formatPips(result.riskPercent)}%` },
     ],
   };
 }

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExternalLink } from '@/components/external-link';
 import { Palette, Spacing } from '@/constants/theme';
 import type { ReferenceQuoteView } from '@/hooks/use-reference-quote';
+import { formatDisplayPrice } from '@/lib/price-format';
 import { GOLD_API_PROVIDER } from '@/services/gold-price';
 import {
   formatQuoteAge,
@@ -25,6 +26,7 @@ type ReferencePriceProps = {
   quoteCurrency: string | null;
   onUseRate: () => void;
   variant?: 'forex' | 'gold';
+  priceDecimals: number;
 };
 
 export function ReferencePrice({
@@ -36,6 +38,7 @@ export function ReferencePrice({
   quoteCurrency,
   onUseRate,
   variant = 'forex',
+  priceDecimals,
 }: ReferencePriceProps) {
   if (view.status === 'idle') {
     return null;
@@ -44,7 +47,7 @@ export function ReferencePrice({
   if (view.status === 'unsupported') {
     return (
       <View style={styles.panel}>
-        <Text style={styles.label}>Reference price</Text>
+        <Text style={styles.label}>Indicative price</Text>
         <Text style={styles.body}>
           No reference price is available for this instrument. Enter the entry price yourself.
         </Text>
@@ -63,7 +66,7 @@ export function ReferencePrice({
   return (
     <View style={styles.panel}>
       <View style={styles.titleRow}>
-        <Text style={styles.label}>Reference price</Text>
+        <Text style={styles.label}>Indicative price</Text>
         <Text style={styles.delayed}>{gold ? 'Spot reference' : 'Delayed about 15 minutes'}</Text>
       </View>
       <Text style={styles.body}>
@@ -73,7 +76,7 @@ export function ReferencePrice({
       </Text>
 
       {busy && !quote ? <Text style={styles.price}>Loading reference price…</Text> : null}
-      {quote ? <Text style={styles.price}>{formatReferencePrice(quote.price)}</Text> : null}
+      {quote ? <Text style={styles.price}>{formatDisplayPrice(quote.price, priceDecimals)}</Text> : null}
       {quote ? (
         <Text style={styles.meta}>
           {formatQuoteTimestamp(quote.effectiveAt)}

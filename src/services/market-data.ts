@@ -1,5 +1,6 @@
 import { ACCOUNT_CURRENCIES } from '../constants/currencies';
 import type { InstrumentSpec } from '../constants/instruments';
+import { formatDisplayPrice } from '../lib/price-format';
 import { GOLD_API_ATTRIBUTION_URL, GOLD_API_PROVIDER, GOLD_API_URL, goldFreshness, parseGoldSpot } from './gold-price';
 
 /** Keyless development provider. Do not embed an API key. */
@@ -194,19 +195,22 @@ export function entryAfterReferenceAction(
   entry: string,
   price: number | null,
   action: 'refresh' | 'use-price',
+  decimals?: number,
 ): string {
   if (action !== 'use-price' || price === null) {
     return entry;
   }
-  return formatReferencePrice(price) || entry;
+  const formatted = decimals === undefined ? formatReferencePrice(price) : formatDisplayPrice(price, decimals);
+  return formatted || entry;
 }
 
 export function levelsAfterUsePrice(
   levels: { entry: string; stopLoss: string; takeProfit: string },
   price: number,
+  decimals?: number,
 ): { entry: string; stopLoss: string; takeProfit: string } {
   return {
-    entry: entryAfterReferenceAction(levels.entry, price, 'use-price'),
+    entry: entryAfterReferenceAction(levels.entry, price, 'use-price', decimals),
     stopLoss: levels.stopLoss,
     takeProfit: levels.takeProfit,
   };

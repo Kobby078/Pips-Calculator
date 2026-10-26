@@ -9,6 +9,9 @@ type ResultPanelProps = {
   body?: string;
   warning?: string | null;
   note?: string | null;
+  lotFits?: boolean;
+  recommendedLot?: string | null;
+  lotDetail?: string | null;
   summary?: ResultRow[];
   metrics?: ResultRow[];
 };
@@ -19,6 +22,9 @@ export function ResultPanel({
   body,
   warning,
   note,
+  lotFits,
+  recommendedLot,
+  lotDetail,
   summary = [],
   metrics,
 }: ResultPanelProps) {
@@ -40,7 +46,20 @@ export function ResultPanel({
     <View style={styles.panel}>
       <Text style={styles.kicker}>Result</Text>
       <Text style={styles.title}>{heading}</Text>
-      <Text style={styles.body}>{copy}</Text>
+      {status === 'ready' && lotFits && recommendedLot ? (
+        <View style={styles.hero}>
+          <Text style={styles.heroLabel}>Broker lot</Text>
+          <Text style={styles.heroValue}>{recommendedLot}</Text>
+          {lotDetail ? <Text style={styles.heroDetail}>{lotDetail}</Text> : null}
+        </View>
+      ) : null}
+      {status === 'ready' && lotFits === false ? (
+        <View style={styles.heroBlocked}>
+          <Text style={styles.heroLabel}>No supported lot</Text>
+          <Text style={styles.heroReason}>{body}</Text>
+        </View>
+      ) : null}
+      {status === 'ready' && lotFits === false ? null : <Text style={styles.body}>{copy}</Text>}
       {warning ? <Text style={styles.warning}>{warning}</Text> : null}
       {note ? <Text style={styles.note}>{note}</Text> : null}
 
@@ -100,6 +119,46 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  hero: {
+    borderRadius: 14,
+    backgroundColor: Palette.accentSoft,
+    borderWidth: 1,
+    borderColor: Palette.accent,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  heroBlocked: {
+    borderRadius: 14,
+    backgroundColor: Palette.accentSoft,
+    borderWidth: 1,
+    borderColor: Palette.danger,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  heroLabel: {
+    color: Palette.accent,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  heroValue: {
+    color: Palette.text,
+    fontSize: 40,
+    lineHeight: 46,
+    fontWeight: '700',
+  },
+  heroDetail: {
+    color: Palette.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  heroReason: {
+    color: Palette.text,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600',
   },
   warning: {
     color: Palette.danger,

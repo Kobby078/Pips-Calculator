@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { ScreenHeader } from '@/components/screen-header';
@@ -17,7 +17,20 @@ export default function SettingsScreen() {
     setMinimumLotSize,
     lotIncrement,
     setLotIncrement,
+    hydrated,
+    resetTradePreferences,
   } = useSettings();
+
+  function confirmReset() {
+    Alert.alert(
+      'Reset preferences?',
+      'This clears the saved instrument, balance, and risk. Broker lot sizes and account currency stay on this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: resetTradePreferences },
+      ],
+    );
+  }
 
   return (
     <ScreenScroll>
@@ -79,6 +92,18 @@ export default function SettingsScreen() {
           hint="Example: 0.01. Lots step up from the minimum by this amount, and never round up."
           error={isPositiveDecimal(lotIncrement) ? undefined : 'Enter a lot increment greater than zero.'}
         />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reset preferences"
+          disabled={!hydrated}
+          onPress={confirmReset}
+          style={({ pressed }) => [styles.reset, !hydrated ? styles.resetDisabled : null, pressed ? styles.pressed : null]}>
+          <Text style={styles.resetLabel}>Reset preferences</Text>
+        </Pressable>
+        <Text style={styles.hint}>
+          Clears the saved instrument, balance, and risk. Lot sizes and account currency stay saved.
+        </Text>
       </View>
     </ScreenScroll>
   );
@@ -138,5 +163,23 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.82,
+  },
+  reset: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.surfaceRaised,
+  },
+  resetDisabled: {
+    opacity: 0.45,
+  },
+  resetLabel: {
+    color: Palette.text,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
   },
 });

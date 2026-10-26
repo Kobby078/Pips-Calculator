@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState, type ComponentRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BrokerVolume } from '@/components/broker-volume';
 import { FormField } from '@/components/form-field';
@@ -16,6 +16,7 @@ import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 import { describeVolumeGrid, lotSettingsSummary, resolveLotSettings } from '@/lib/lot-settings';
 import { markIndicativeConversion, presentPosition, type ResultRow } from '@/lib/present-position';
+import { displayPriceDecimals } from '@/lib/price-format';
 import {
   conversionAfterReferenceAction,
   indicativeQuoteToAccount,
@@ -49,12 +50,16 @@ type PanelState = {
   body: string;
   warning?: string | null;
   note?: string | null;
+  lotFits?: boolean;
+  recommendedLot?: string | null;
+  lotDetail?: string | null;
   summary?: ResultRow[];
   metrics?: ResultRow[];
 };
 
 export default function CalculatorScreen() {
   const {
+    hydrated,
     currency,
     currencyNotice,
     minimumLotSize,
@@ -62,13 +67,17 @@ export default function CalculatorScreen() {
     instrumentLots,
     setInstrumentVolume,
     clearInstrumentVolume,
+    trade,
+    tradeRevision,
+    updateTrade,
   } = useSettings();
-  const [instrument, setInstrument] = useState<string | null>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const instrument = trade.instrument;
+  const balance = trade.balance;
+  const riskMode = trade.riskMode;
+  const riskValue = trade.riskValue;
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [direction, setDirection] = useState<TradeDirection>('buy');
-  const [balance, setBalance] = useState('');
-  const [riskMode, setRiskMode] = useState<RiskInputMode>('percent');
-  const [riskValue, setRiskValue] = useState('');
   const [entry, setEntry] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
@@ -144,9 +153,10 @@ export default function CalculatorScreen() {
         next === 'amount'
           ? cashRiskFromPercent(balanceNumber, riskNumber)
           : percentFromCashRisk(balanceNumber, riskNumber);
-      setRiskValue(formatRiskInput(converted));
+      updateTrade({ riskMode: next, riskValue: formatRiskInput(converted) });
+    } else {
+      updateTrade({ riskMode: next });
     }
-    setRiskMode(next);
     clearError('riskValue');
   }
 
@@ -220,11 +230,17 @@ export default function CalculatorScreen() {
       body: presented.body,
       warning: presented.warning,
       note: note || null,
+      lotFits: presented.lotFits,
+      recommendedLot: presented.recommendedLot,
+      lotDetail: presented.lotDetail,
       summary: [
         ...(conversionIsIndicative ? markIndicativeConversion(presented.summary) : presented.summary),
         lotSettingsSummary(lots.source, result.symbol),
       ],
       metrics: presented.metrics,
+    });
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: false });
     });
   }
 
@@ -233,7 +249,11 @@ export default function CalculatorScreen() {
     if (price === null) {
       return;
     }
-    const next = levelsAfterUsePrice({ entry, stopLoss, takeProfit }, price);
+    const next = levelsAfterUsePrice(
+      { entry, stopLoss, takeProfit },
+      price,
+      displayPriceDecimals(selected?.spec ?? null),
+    );
     setEntry(next.entry);
     clearError('entry');
   }
@@ -248,11 +268,32 @@ export default function CalculatorScreen() {
     clearError('conversion');
   }
 
+  if (!hydrated) {
+    return (
+      <ScreenScroll>
+        <ScreenHeader
+          title="Risk Calculator"
+          subtitle="Size a position from your balance, risk, and price levels."
+        />
+      </ScreenScroll>
+    );
+  }
+
   return (
-    <ScreenScroll>
+    <ScreenScroll
+      ref={scrollRef}
+      footer={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Calculate"
+          onPress={onCalculate}
+          style={({ pressed }) => [styles.calculate, pressed ? styles.pressed : null]}>
+          <Text style={styles.calculateLabel}>Calculate</Text>
+        </Pressable>
+      }>
       <ScreenHeader
         title="Risk Calculator"
-        subtitle="Set the trade levels you want to size. Reference prices are not broker prices."
+        subtitle="Size a position from your balance, risk, and price levels. Reference prices are indicative."
       />
 
       <View style={styles.card}>
@@ -288,7 +329,7 @@ export default function CalculatorScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => {
-                      setInstrument(item.symbol);
+                      updateTrade({ instrument: item.symbol });
                       setInstrumentOpen(false);
                       clearError('instrument');
                       clearError('conversion');
@@ -307,21 +348,26 @@ export default function CalculatorScreen() {
           ) : null}
         </View>
 
-        {selected ? (
-          <BrokerVolume
-            key={selected.symbol}
-            symbol={selected.symbol}
-            resolved={lots}
-            onChange={(volume) => setInstrumentVolume(selected.symbol, volume)}
-            onUseDefaults={() => clearInstrumentVolume(selected.symbol)}
-          />
-        ) : null}
+        <SegmentedControl
+          label="Direction"
+          value={direction}
+          onChange={(next) => {
+            setDirection(next);
+            clearError('stopLoss');
+            clearError('takeProfit');
+          }}
+          options={[
+            { value: 'buy', label: 'Buy' },
+            { value: 'sell', label: 'Sell' },
+          ]}
+        />
 
         <FormField
+          key={`balance-${tradeRevision}`}
           label={`Account balance (${currency})`}
           value={balance}
           onChangeText={(value) => {
-            setBalance(sanitizeDecimal(value));
+            updateTrade({ balance: sanitizeDecimal(value) });
             clearError('balance');
           }}
           placeholder={`Enter balance in ${currency}`}
@@ -343,10 +389,11 @@ export default function CalculatorScreen() {
         />
 
         <FormField
+          key={`risk-${tradeRevision}`}
           label={riskMode === 'percent' ? 'Risk percentage' : `Risk amount (${currency})`}
           value={riskValue}
           onChangeText={(value) => {
-            setRiskValue(sanitizeDecimal(value));
+            updateTrade({ riskValue: sanitizeDecimal(value) });
             clearError('riskValue');
           }}
           placeholder={riskMode === 'percent' ? 'Enter risk percentage' : `Enter risk in ${currency}`}
@@ -356,33 +403,6 @@ export default function CalculatorScreen() {
               : undefined
           }
           error={errors.riskValue}
-        />
-
-        <SegmentedControl
-          label="Direction"
-          value={direction}
-          onChange={(next) => {
-            setDirection(next);
-            clearError('stopLoss');
-            clearError('takeProfit');
-          }}
-          options={[
-            { value: 'buy', label: 'Buy' },
-            { value: 'sell', label: 'Sell' },
-          ]}
-        />
-
-        <ReferencePrice
-          view={reference}
-          variant={
-            selected?.spec?.baseCurrency === 'XAU' && selected?.spec?.quoteCurrency === 'USD' ? 'gold' : 'forex'
-          }
-          onRefresh={reference.refresh}
-          onUsePrice={onUsePrice}
-          indicative={needsConversion ? indicative : null}
-          accountCurrency={currency}
-          quoteCurrency={quoteCurrency ?? null}
-          onUseRate={onUseRate}
         />
 
         <FormField
@@ -420,6 +440,20 @@ export default function CalculatorScreen() {
           error={errors.takeProfit}
         />
 
+        <ReferencePrice
+          view={reference}
+          variant={
+            selected?.spec?.baseCurrency === 'XAU' && selected?.spec?.quoteCurrency === 'USD' ? 'gold' : 'forex'
+          }
+          priceDecimals={displayPriceDecimals(selected?.spec ?? null)}
+          onRefresh={reference.refresh}
+          onUsePrice={onUsePrice}
+          indicative={needsConversion ? indicative : null}
+          accountCurrency={currency}
+          quoteCurrency={quoteCurrency ?? null}
+          onUseRate={onUseRate}
+        />
+
         {needsConversion && quoteCurrency ? (
           <FormField
             label={`${quoteCurrency} to ${currency} rate`}
@@ -438,13 +472,15 @@ export default function CalculatorScreen() {
           />
         ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Calculate"
-          onPress={onCalculate}
-          style={({ pressed }) => [styles.calculate, pressed ? styles.pressed : null]}>
-          <Text style={styles.calculateLabel}>Calculate</Text>
-        </Pressable>
+        {selected ? (
+          <BrokerVolume
+            key={selected.symbol}
+            symbol={selected.symbol}
+            resolved={lots}
+            onChange={(volume) => setInstrumentVolume(selected.symbol, volume)}
+            onUseDefaults={() => clearInstrumentVolume(selected.symbol)}
+          />
+        ) : null}
       </View>
 
       <ResultPanel
@@ -453,6 +489,9 @@ export default function CalculatorScreen() {
         body={panel && !outdated ? panel.body : undefined}
         warning={panel && !outdated ? panel.warning : null}
         note={panel && !outdated ? panel.note : null}
+        lotFits={panel && !outdated && panel.status === 'ready' ? panel.lotFits : undefined}
+        recommendedLot={panel && !outdated && panel.status === 'ready' ? panel.recommendedLot : null}
+        lotDetail={panel && !outdated && panel.status === 'ready' ? panel.lotDetail : null}
         summary={panel && !outdated ? panel.summary : []}
         metrics={panel && !outdated ? panel.metrics : undefined}
       />
@@ -562,7 +601,9 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.one,
+    maxWidth: 640,
+    width: '100%',
+    alignSelf: 'center',
   },
   calculateLabel: {
     color: '#FFFFFF',

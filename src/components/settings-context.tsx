@@ -1,17 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AccountCurrency, DEFAULT_ACCOUNT_CURRENCY } from '@/constants/currencies';
 import {
   DEFAULT_LOT_INCREMENT,
   DEFAULT_MINIMUM_LOT,
+  EMPTY_TRADE_PREFERENCES,
   parseStoredSettings,
   serializeSettings,
   SETTINGS_STORAGE_KEY,
   type InstrumentVolume,
+  type TradePreferences,
 } from '@/lib/lot-settings';
 
 type SettingsContextValue = {
+  hydrated: boolean;
   currency: AccountCurrency;
   setCurrency: (currency: AccountCurrency) => void;
   /** Set after the account currency changes. Entered amounts are not converted. */
@@ -23,6 +26,11 @@ type SettingsContextValue = {
   instrumentLots: Readonly<Record<string, InstrumentVolume>>;
   setInstrumentVolume: (symbol: string, volume: InstrumentVolume) => void;
   clearInstrumentVolume: (symbol: string) => void;
+  trade: TradePreferences;
+  /** Changes when preferences are reset, so inputs can remount instead of echoing old text. */
+  tradeRevision: number;
+  updateTrade: (patch: Partial<TradePreferences>) => void;
+  resetTradePreferences: () => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -33,7 +41,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [minimumLotSize, setMinimumLotSize] = useState(DEFAULT_MINIMUM_LOT);
   const [lotIncrement, setLotIncrement] = useState(DEFAULT_LOT_INCREMENT);
   const [instrumentLots, setInstrumentLots] = useState<Record<string, InstrumentVolume>>({});
+  const [trade, setTrade] = useState<TradePreferences>(EMPTY_TRADE_PREFERENCES);
+  const [tradeRevision, setTradeRevision] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  const ignoreTradeEdits = useRef(false);
 
   const setCurrency = useCallback(
     (next: AccountCurrency) => {
@@ -66,6 +77,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const updateTrade = useCallback((patch: Partial<TradePreferences>) => {
+    if (ignoreTradeEdits.current) {
+      return;
+    }
+    setTrade((current) => ({ ...current, ...patch }));
+  }, []);
+
+  const resetTradePreferences = useCallback(() => {
+    // Android can report the previous field text while the controlled value is cleared.
+    ignoreTradeEdits.current = true;
+    setTrade({ ...EMPTY_TRADE_PREFERENCES });
+    setTradeRevision((current) => current + 1);
+    setTimeout(() => {
+      ignoreTradeEdits.current = false;
+    }, 400);
+  }, []);
+
   useEffect(() => {
     let active = true;
     AsyncStorage.getItem(SETTINGS_STORAGE_KEY)
@@ -79,6 +107,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setMinimumLotSize(stored.minimumLotSize);
           setLotIncrement(stored.lotIncrement);
           setInstrumentLots(stored.instrumentLots);
+          setTrade(stored.preferences ?? { ...EMPTY_TRADE_PREFERENCES });
         }
         setHydrated(true);
       })
@@ -96,12 +125,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (!hydrated) {
       return;
     }
-    const payload = serializeSettings({ currency, minimumLotSize, lotIncrement, instrumentLots });
+    const payload = serializeSettings({ currency, minimumLotSize, lotIncrement, instrumentLots, preferences: trade });
     void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, payload).catch(() => undefined);
-  }, [currency, hydrated, instrumentLots, lotIncrement, minimumLotSize]);
+  }, [currency, hydrated, instrumentLots, lotIncrement, minimumLotSize, trade]);
 
   const value = useMemo(
     () => ({
+      hydrated,
       currency,
       setCurrency,
       currencyNotice,
@@ -112,8 +142,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       instrumentLots,
       setInstrumentVolume,
       clearInstrumentVolume,
+      trade,
+      tradeRevision,
+      updateTrade,
+      resetTradePreferences,
     }),
     [
+      hydrated,
       currency,
       currencyNotice,
       instrumentLots,
@@ -122,6 +157,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setCurrency,
       setInstrumentVolume,
       clearInstrumentVolume,
+      trade,
+      tradeRevision,
+      updateTrade,
+      resetTradePreferences,
     ],
   );
 

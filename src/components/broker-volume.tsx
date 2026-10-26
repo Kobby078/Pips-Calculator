@@ -20,22 +20,43 @@ type BrokerVolumeProps = {
 };
 
 export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: BrokerVolumeProps) {
+  const grid = describeVolumeGrid(resolved.minimumLot, resolved.lotIncrement);
+  const [open, setOpen] = useState(grid.kind === 'incompatible' || !resolved.valid);
   const [customOpen, setCustomOpen] = useState(false);
   const choice = customOpen ? 'custom' : minimumLotChoice(resolved.minimumLot);
   const minimumError =
     resolved.valid || isPositiveDecimal(resolved.minimumLot) ? undefined : 'Enter a minimum greater than zero.';
   const incrementError =
     resolved.valid || isPositiveDecimal(resolved.lotIncrement) ? undefined : 'Enter an increment greater than zero.';
-  const grid = describeVolumeGrid(resolved.minimumLot, resolved.lotIncrement);
 
   function selectPreset(minimumLot: string) {
     setCustomOpen(false);
     onChange({ minimumLot, lotIncrement: resolved.lotIncrement });
   }
 
+  const summary = resolved.valid
+    ? `Minimum ${resolved.minimumLot}, step ${resolved.lotIncrement}`
+    : 'Enter a minimum and a step';
+
   return (
     <View style={styles.wrap}>
-      <Text style={styles.question}>{`What's your broker's minimum lot size for ${symbol}?`}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`Broker volume for ${symbol}`}
+        onPress={() => setOpen((current) => !current)}
+        style={({ pressed }) => [styles.header, pressed ? styles.pressed : null]}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.question}>Broker volume</Text>
+          <Text style={styles.hint}>{summary}</Text>
+        </View>
+        <Text style={styles.toggle}>{open ? 'Hide' : 'Show'}</Text>
+      </Pressable>
+      {!open && (grid.kind === 'incompatible' || !resolved.valid) ? (
+        <Text style={styles.error}>{grid.message}</Text>
+      ) : null}
+      {open ? (
+        <View style={styles.details}>
       <Text style={styles.hint}>
         Minimum lot is the smallest size that broker will accept. Lot increment is the step above it. A minimum
         that is not a whole number of steps is incompatible, and no size is recommended.
@@ -106,12 +127,40 @@ export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: Brok
           <Text style={styles.defaultsLabel}>Use Settings defaults</Text>
         </Pressable>
       ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
+    gap: Spacing.two,
+  },
+  header: {
+    minHeight: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.surfaceRaised,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  toggle: {
+    color: Palette.accent,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  details: {
     gap: Spacing.two,
   },
   question: {

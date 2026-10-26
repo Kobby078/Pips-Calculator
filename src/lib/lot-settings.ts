@@ -1,6 +1,8 @@
 import { ACCOUNT_CURRENCIES, type AccountCurrency, DEFAULT_ACCOUNT_CURRENCY } from '../constants/currencies';
-import { isPositiveDecimal } from './decimal-input';
+import { findInstrument } from '../constants/instruments';
+import { isPositiveDecimal, sanitizeDecimal } from './decimal-input';
 import type { ResultRow } from './present-position';
+import type { RiskInputMode } from './trading-calculations';
 
 /** Values the settings screen already described. Empty strings never reached the engine. */
 export const DEFAULT_MINIMUM_LOT = '0.01';
@@ -26,12 +28,37 @@ export type ResolvedLotSettings = {
 
 export const SETTINGS_STORAGE_KEY = 'atlasjfx.calculator-settings.v1';
 
+/** Trade setup the calculator restores. Reference prices and price levels are not included. */
+export type TradePreferences = {
+  instrument: string | null;
+  balance: string;
+  riskMode: RiskInputMode;
+  riskValue: string;
+};
+
+export const EMPTY_TRADE_PREFERENCES: TradePreferences = {
+  instrument: null,
+  balance: '',
+  riskMode: 'percent',
+  riskValue: '',
+};
+
 export type StoredCalculatorSettings = {
   currency: AccountCurrency;
   minimumLotSize: string;
   lotIncrement: string;
   instrumentLots: Record<string, InstrumentVolume>;
+  /** Absent on settings saved before trade preferences existed. */
+  preferences?: TradePreferences;
 };
+
+/** Clears the saved trade setup. Currency and broker lot settings stay. */
+export function withoutTradePreferences(settings: StoredCalculatorSettings): StoredCalculatorSettings {
+  return {
+    ...settings,
+    preferences: { ...EMPTY_TRADE_PREFERENCES },
+  };
+}
 
 export function resolveLotSettings(input: {
   symbol: string | null;
@@ -151,11 +178,13 @@ export function parseStoredSettings(raw: string | null): StoredCalculatorSetting
     const currency = ACCOUNT_CURRENCIES.includes(record.currency as AccountCurrency)
       ? (record.currency as AccountCurrency)
       : DEFAULT_ACCOUNT_CURRENCY;
+    const preferences = readPreferences(record.preferences);
     return {
       currency,
       minimumLotSize: readString(record.minimumLotSize, DEFAULT_MINIMUM_LOT),
       lotIncrement: readString(record.lotIncrement, DEFAULT_LOT_INCREMENT),
       instrumentLots: readInstrumentLots(record.instrumentLots),
+      ...(preferences ? { preferences } : {}),
     };
   } catch {
     return null;
@@ -168,6 +197,23 @@ export function serializeSettings(settings: StoredCalculatorSettings): string {
 
 function readString(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function readPreferences(value: unknown): TradePreferences | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!value || typeof value !== 'object') {
+    return { ...EMPTY_TRADE_PREFERENCES };
+  }
+  const record = value as Record<string, unknown>;
+  const symbol = typeof record.instrument === 'string' ? record.instrument : '';
+  return {
+    instrument: findInstrument(symbol) ? symbol : null,
+    balance: typeof record.balance === 'string' ? sanitizeDecimal(record.balance) : '',
+    riskMode: record.riskMode === 'amount' ? 'amount' : 'percent',
+    riskValue: typeof record.riskValue === 'string' ? sanitizeDecimal(record.riskValue) : '',
+  };
 }
 
 function readInstrumentLots(value: unknown): Record<string, InstrumentVolume> {
