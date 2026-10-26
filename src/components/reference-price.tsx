@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
-import { Palette, Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 import type { ReferenceQuoteView } from '@/hooks/use-reference-quote';
 import { formatDisplayPrice } from '@/lib/price-format';
 import { GOLD_API_PROVIDER } from '@/services/gold-price';
@@ -40,6 +41,7 @@ export function ReferencePrice({
   variant = 'forex',
   priceDecimals,
 }: ReferencePriceProps) {
+  const styles = useThemedStyles(createStyles);
   if (view.status === 'idle') {
     return null;
   }
@@ -139,13 +141,14 @@ export function ReferencePrice({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   panel: {
     gap: Spacing.two,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.accentSoft,
+    borderColor: colors.divider,
+    backgroundColor: colors.reference,
     padding: Spacing.three,
   },
   titleRow: {
@@ -155,35 +158,35 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   label: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
   },
   delayed: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
   },
   body: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
   price: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '700',
   },
   meta: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
   warning: {
-    color: Palette.danger,
+    color: colors.warning,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -193,7 +196,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   link: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -210,14 +213,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceRaised,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
   secondaryLabel: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
@@ -226,13 +229,13 @@ const styles = StyleSheet.create({
     minHeight: 44,
     flex: 1,
     borderRadius: 12,
-    backgroundColor: Palette.accent,
+    backgroundColor: colors.button,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
   primaryLabel: {
-    color: '#FFFFFF',
+    color: colors.buttonText,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
@@ -244,3 +247,4 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
 });
+}

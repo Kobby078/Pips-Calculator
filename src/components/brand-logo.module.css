@@ -1,0 +1,19 @@
+.plate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 12px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .plate {
+    background: #0c0c10;
+    padding: 6px 8px;
+  }
+}
+
+:root[data-theme='light'] .plate {
+  background: #0c0c10;
+  padding: 6px 8px;
+}

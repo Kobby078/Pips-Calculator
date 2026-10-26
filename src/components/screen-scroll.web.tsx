@@ -3,7 +3,8 @@ import { ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import css from '@/components/dashboard.module.css';
-import { DashboardMaxWidth, Palette, Spacing } from '@/constants/theme';
+import { DashboardMaxWidth, Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 
 type ScreenScrollProps = {
   children: ReactNode;
@@ -15,6 +16,7 @@ export const ScreenScroll = forwardRef<ComponentRef<typeof ScrollView>, ScreenSc
   { children, footer, maxWidth = DashboardMaxWidth },
   ref,
 ) {
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, StatusBar.currentHeight ?? 0);
 
@@ -40,10 +42,11 @@ export const ScreenScroll = forwardRef<ComponentRef<typeof ScrollView>, ScreenSc
   );
 });
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: Palette.background,
+    backgroundColor: colors.background,
   },
   scroll: {
     flexGrow: 1,
@@ -58,10 +61,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     width: '100%',
     borderTopWidth: 1,
-    borderTopColor: Palette.border,
-    backgroundColor: Palette.background,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.background,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
   },
 });
+}

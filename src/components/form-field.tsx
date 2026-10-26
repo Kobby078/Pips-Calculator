@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles, useTheme } from '@/hooks/use-theme';
 
 type FormFieldProps = {
   label: string;
@@ -21,6 +22,8 @@ export function FormField({
   hint,
   optional = false,
 }: FormFieldProps) {
+  const colors = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.wrap}>
       <View style={styles.labelRow}>
@@ -31,7 +34,7 @@ export function FormField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={Palette.textMuted}
+        placeholderTextColor={colors.placeholder}
         keyboardType="decimal-pad"
         inputMode="decimal"
         accessibilityLabel={label}
@@ -43,7 +46,8 @@ export function FormField({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   wrap: {
     gap: Spacing.two,
   },
@@ -53,13 +57,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   label: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
   },
   optional: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
@@ -68,25 +72,26 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceRaised,
-    color: Palette.text,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+    color: colors.text,
     fontSize: 17,
     lineHeight: 22,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
   inputError: {
-    borderColor: Palette.danger,
+    borderColor: colors.error,
   },
   error: {
-    color: Palette.danger,
+    color: colors.error,
     fontSize: 13,
     lineHeight: 18,
   },
   hint: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
 });
+}

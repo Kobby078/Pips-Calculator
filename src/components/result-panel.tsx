@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 import { emptyMetricRows, TRADING_RISK_DISCLOSURE, type ResultRow } from '@/lib/present-position';
 
 type ResultPanelProps = {
@@ -28,6 +29,7 @@ export function ResultPanel({
   summary = [],
   metrics,
 }: ResultPanelProps) {
+  const styles = useThemedStyles(createStyles);
   const shownMetrics = metrics ?? emptyMetricRows();
   const heading =
     title ??
@@ -48,7 +50,7 @@ export function ResultPanel({
       <Text style={styles.title}>{heading}</Text>
       {status === 'ready' && lotFits && recommendedLot ? (
         <View style={styles.hero}>
-          <Text style={styles.heroLabel}>Broker lot</Text>
+          <Text style={[styles.heroLabel, styles.positive]}>Broker lot</Text>
           <Text style={styles.heroValue}>{recommendedLot}</Text>
           {lotDetail ? <Text style={styles.heroDetail}>{lotDetail}</Text> : null}
         </View>
@@ -66,7 +68,7 @@ export function ResultPanel({
       {status === 'ready' && summary.length > 0 ? (
         <View style={styles.summary}>
           {summary.map((row) => (
-            <SummaryRow key={row.label} label={row.label} value={row.value} />
+            <SummaryRow key={row.label} label={row.label} value={row.value} styles={styles} />
           ))}
         </View>
       ) : null}
@@ -84,7 +86,15 @@ export function ResultPanel({
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryRow({
+  label,
+  value,
+  styles,
+}: {
+  label: string;
+  value: string;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -93,17 +103,18 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   panel: {
-    backgroundColor: Palette.backgroundElement,
+    backgroundColor: colors.backgroundElement,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.border,
     padding: Spacing.three,
     gap: Spacing.two,
   },
   kicker: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -111,64 +122,67 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '700',
   },
   body: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
   hero: {
     borderRadius: 14,
-    backgroundColor: Palette.accentSoft,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: Palette.accent,
+    borderColor: colors.accent,
     padding: Spacing.three,
     gap: Spacing.one,
   },
   heroBlocked: {
     borderRadius: 14,
-    backgroundColor: Palette.accentSoft,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: Palette.danger,
+    borderColor: colors.warning,
     padding: Spacing.three,
     gap: Spacing.one,
   },
   heroLabel: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
     letterSpacing: 0.4,
   },
+  positive: {
+    color: colors.positive,
+  },
   heroValue: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 40,
     lineHeight: 46,
     fontWeight: '700',
   },
   heroDetail: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
   heroReason: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '600',
   },
   warning: {
-    color: Palette.danger,
+    color: colors.warning,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '600',
   },
   note: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -177,7 +191,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.divider,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -186,12 +200,12 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   summaryLabel: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
   summaryValue: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
@@ -204,7 +218,7 @@ const styles = StyleSheet.create({
   metricRow: {
     minHeight: 44,
     borderRadius: 12,
-    backgroundColor: Palette.accentSoft,
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,17 +226,18 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   metricLabel: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
     flexShrink: 1,
   },
   metricValue: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '600',
     textAlign: 'right',
   },
 });
+}

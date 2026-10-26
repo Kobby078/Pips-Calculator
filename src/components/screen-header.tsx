@@ -1,7 +1,8 @@
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { BrandLogo } from '@/components/brand-logo';
 import { ThemedText } from '@/components/themed-text';
+import { Spacing } from '@/constants/theme';
 
 type ScreenHeaderProps = {
   title: string;
@@ -11,9 +12,9 @@ type ScreenHeaderProps = {
 export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
   return (
     <View style={styles.header}>
-      <ThemedText style={styles.brand} {...(Platform.OS === 'web' ? { dataSet: { pageBrand: 'true' } } : {})}>
-        ATLASJFX
-      </ThemedText>
+      <View {...(Platform.OS === 'web' ? { dataSet: { pageBrand: 'true' } } : {})}>
+        <BrandLogo variant="complete" height={72} />
+      </View>
       <ThemedText style={styles.title}>{title}</ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.subtitle}>
         {subtitle}
@@ -24,15 +25,8 @@ export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
 
 const styles = StyleSheet.create({
   header: {
-    gap: Spacing.one,
+    gap: Spacing.two,
     paddingBottom: Spacing.one,
-  },
-  brand: {
-    color: Palette.accent,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    letterSpacing: 2.4,
   },
   title: {
     fontSize: 32,

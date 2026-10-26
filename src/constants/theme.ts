@@ -1,45 +1,108 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
- */
-
 import '@/global.css';
 
 import { Platform } from 'react-native';
 
-const brand = {
-  text: '#F4F4F7',
+export const themeColorNames = [
+  'background',
+  'backgroundElement',
+  'surfaceRaised',
+  'backgroundSelected',
+  'text',
+  'textSecondary',
+  'textMuted',
+  'accent',
+  'accentSoft',
+  'border',
+  'button',
+  'buttonText',
+  'positive',
+  'warning',
+  'error',
+  'danger',
+  'disabled',
+  'reference',
+  'placeholder',
+  'input',
+  'nav',
+  'divider',
+] as const;
+
+export type ThemeColor = (typeof themeColorNames)[number];
+
+export type ThemeColors = Record<ThemeColor, string>;
+
+const dark = {
   background: '#0C0C10',
   backgroundElement: '#16161D',
-  backgroundSelected: '#2A2340',
-  textSecondary: '#A7A6B3',
-  textMuted: '#8E8C9A',
-  accent: '#6D4F96',
-  accentSoft: '#241E33',
-  border: '#2E2C38',
   surfaceRaised: '#1E1E28',
+  backgroundSelected: '#2A2340',
+  text: '#F4F4F7',
+  textSecondary: '#C5C4D0',
+  textMuted: '#B0AEBC',
+  accent: '#C4B0E0',
+  accentSoft: '#241E33',
+  border: '#6A6480',
+  button: '#6D4F96',
+  buttonText: '#FFFFFF',
+  positive: '#8FCBB0',
+  warning: '#E4C07A',
+  error: '#E2B4BC',
   danger: '#E2B4BC',
-} as const;
+  disabled: '#8E8C9A',
+  reference: '#241E33',
+  placeholder: '#B0AEBC',
+  input: '#1E1E28',
+  nav: '#0C0C10',
+  divider: '#6A6480',
+} as const satisfies ThemeColors;
 
-/** ATLASJFX is a dark fintech product, so both schemes share the brand palette. */
+const light = {
+  background: '#F6F5F8',
+  backgroundElement: '#FFFFFF',
+  surfaceRaised: '#F3F1F6',
+  backgroundSelected: '#E4D8F3',
+  text: '#1A1A1F',
+  textSecondary: '#3A3844',
+  textMuted: '#4E4C59',
+  accent: '#5C3D86',
+  accentSoft: '#F3EEF8',
+  border: '#868092',
+  button: '#6D4F96',
+  buttonText: '#FFFFFF',
+  positive: '#146B43',
+  warning: '#7A4E00',
+  error: '#8E2433',
+  danger: '#8E2433',
+  disabled: '#6E6C78',
+  reference: '#F3EEF8',
+  placeholder: '#5C5968',
+  input: '#FFFFFF',
+  nav: '#F6F5F8',
+  divider: '#868092',
+} as const satisfies ThemeColors;
+
 export const Colors = {
-  light: brand,
-  dark: brand,
+  light,
+  dark,
 } as const;
 
-export const Palette = brand;
+/** Splash and icon plates stay on the charcoal brand field. */
+export const BrandCanvas = '#0C0C10';
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export function themeVar(name: ThemeColor): string {
+  const kebab = name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+  return `var(--atlas-${kebab})`;
+}
+
+export const webThemeColors: ThemeColors = Object.fromEntries(
+  themeColorNames.map((name) => [name, themeVar(name)]),
+) as ThemeColors;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

@@ -13,7 +13,8 @@ import { ScreenScroll } from '@/components/screen-scroll';
 import { SegmentedControl } from '@/components/segmented-control';
 import { useSettings } from '@/components/settings-context';
 import { INSTRUMENTS } from '@/constants/instruments';
-import { Palette, Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 import { useReferenceQuote } from '@/hooks/use-reference-quote';
 import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
@@ -74,6 +75,7 @@ export default function CalculatorScreen() {
     tradeRevision,
     updateTrade,
   } = useSettings();
+  const styles = useThemedStyles(createCalculatorStyles);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const instrument = trade.instrument;
   const balance = trade.balance;
@@ -547,12 +549,13 @@ export default function CalculatorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createCalculatorStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   field: {
     gap: Spacing.two,
   },
   label: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
@@ -561,8 +564,8 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceRaised,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     flexDirection: 'row',
@@ -571,44 +574,44 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   selectorError: {
-    borderColor: Palette.danger,
+    borderColor: colors.error,
   },
   selectorCopy: {
     flex: 1,
     gap: 2,
   },
   selectorValue: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '700',
   },
   placeholder: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '500',
   },
   selectorHint: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
   chevron: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '700',
   },
   error: {
-    color: Palette.danger,
+    color: colors.error,
     fontSize: 13,
     lineHeight: 18,
   },
   instrumentList: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   instrumentRow: {
@@ -617,21 +620,21 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     justifyContent: 'center',
     gap: 2,
-    backgroundColor: Palette.surfaceRaised,
+    backgroundColor: colors.surfaceRaised,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
+    borderBottomColor: colors.border,
   },
   instrumentRowActive: {
-    backgroundColor: Palette.backgroundSelected,
+    backgroundColor: colors.backgroundSelected,
   },
   instrumentSymbol: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '700',
   },
   instrumentName: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -641,7 +644,7 @@ const styles = StyleSheet.create({
   calculate: {
     minHeight: 56,
     borderRadius: 14,
-    backgroundColor: Palette.accent,
+    backgroundColor: colors.button,
     alignItems: 'center',
     justifyContent: 'center',
     maxWidth: 640,
@@ -651,13 +654,13 @@ const styles = StyleSheet.create({
   inlineCalculate: {
     minHeight: 56,
     borderRadius: 14,
-    backgroundColor: Palette.accent,
+    backgroundColor: colors.button,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
   },
   calculateLabel: {
-    color: '#FFFFFF',
+    color: colors.buttonText,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '700',
@@ -667,3 +670,4 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
 });
+}

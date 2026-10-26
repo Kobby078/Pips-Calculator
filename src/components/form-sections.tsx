@@ -1,7 +1,8 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
 import type { FormSection } from '@/components/form-section';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 
 type FormSectionsProps = {
   sections: FormSection[];
@@ -9,6 +10,7 @@ type FormSectionsProps = {
 
 /** Native keeps one card so the Android column matches the existing calculator. */
 export function FormSections({ sections }: FormSectionsProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.card}>
       {sections.map((section) => (
@@ -20,12 +22,13 @@ export function FormSections({ sections }: FormSectionsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: Palette.backgroundElement,
+    backgroundColor: colors.backgroundElement,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.border,
     padding: Spacing.three,
     gap: Spacing.three,
   },
@@ -33,3 +36,4 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
 });
+}

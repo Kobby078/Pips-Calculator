@@ -6,7 +6,9 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { useSettings } from '@/components/settings-context';
 import { ACCOUNT_CURRENCIES, type AccountCurrency } from '@/constants/currencies';
-import { Palette, SettingsContentWidth, Spacing } from '@/constants/theme';
+import { SettingsContentWidth, Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
+import type { AppearancePreference } from '@/lib/appearance';
 import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 import { TRADING_RISK_DISCLOSURE } from '@/lib/present-position';
 
@@ -21,7 +23,10 @@ export default function SettingsScreen() {
     setLotIncrement,
     hydrated,
     resetTradePreferences,
+    appearance,
+    setAppearance,
   } = useSettings();
+  const styles = useThemedStyles(createStyles);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   function confirmReset() {
@@ -31,7 +36,7 @@ export default function SettingsScreen() {
     }
     Alert.alert(
       'Reset preferences?',
-      'This clears the saved instrument, balance, and risk. Broker lot sizes and account currency stay on this device.',
+      'This clears the saved instrument, balance, and risk. Broker lot sizes, account currency, and appearance stay on this device.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Reset', style: 'destructive', onPress: resetTradePreferences },
@@ -51,6 +56,43 @@ export default function SettingsScreen() {
         title="Settings"
         subtitle="Saved on this device. Lot defaults apply until you set a broker size on the calculator."
       />
+
+      <View style={styles.card}>
+        <View style={styles.field}>
+          <Text style={styles.label}>Appearance</Text>
+          <Text style={styles.hint}>
+            System Default follows this device. Light and Dark stay fixed inside the app.
+          </Text>
+          <View style={styles.appearanceList}>
+            {(
+              [
+                ['system', 'System Default'],
+                ['light', 'Light'],
+                ['dark', 'Dark'],
+              ] as const
+            ).map(([value, label]) => {
+              const selected = appearance === value;
+              return (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={label}
+                  onPress={() => setAppearance(value as AppearancePreference)}
+                  style={({ pressed }) => [
+                    styles.appearanceOption,
+                    selected ? styles.appearanceOptionSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}>
+                  <Text style={[styles.appearanceLabel, selected ? styles.appearanceLabelSelected : null]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
 
       <View style={styles.card}>
         <View style={styles.field}>
@@ -112,16 +154,16 @@ export default function SettingsScreen() {
           disabled={!hydrated}
           onPress={confirmReset}
           style={({ pressed }) => [styles.reset, !hydrated ? styles.resetDisabled : null, pressed ? styles.pressed : null]}>
-          <Text style={styles.resetLabel}>Reset preferences</Text>
+          <Text style={[styles.resetLabel, !hydrated ? styles.resetLabelDisabled : null]}>Reset preferences</Text>
         </Pressable>
         <Text style={styles.hint}>
-          Clears the saved instrument, balance, and risk. Lot sizes and account currency stay saved.
+          Clears the saved instrument, balance, and risk. Lot sizes, account currency, and appearance stay saved.
         </Text>
         {confirmingReset ? (
           <View style={styles.confirm}>
             <Text style={styles.label}>Reset preferences?</Text>
             <Text style={styles.hint}>
-              This clears the saved instrument, balance, and risk. Broker lot sizes and account currency stay on this
+              This clears the saved instrument, balance, and risk. Broker lot sizes, account currency, and appearance stay on this
               device.
             </Text>
             <View style={styles.confirmActions}>
@@ -147,7 +189,8 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   column: {
     width: '100%',
     maxWidth: SettingsContentWidth,
@@ -155,10 +198,10 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   card: {
-    backgroundColor: Palette.backgroundElement,
+    backgroundColor: colors.backgroundElement,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.border,
     padding: Spacing.three,
     gap: Spacing.four,
   },
@@ -166,13 +209,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   label: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
   },
   hint: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -187,23 +230,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceRaised,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
   currencyChipSelected: {
-    backgroundColor: Palette.backgroundSelected,
-    borderColor: Palette.accent,
+    backgroundColor: colors.backgroundSelected,
+    borderColor: colors.accent,
   },
   currencyLabel: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '700',
   },
   currencyLabelSelected: {
-    color: Palette.text,
+    color: colors.text,
   },
   pressed: {
     opacity: 0.82,
@@ -212,16 +255,16 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surfaceRaised,
+    backgroundColor: colors.surfaceRaised,
   },
   resetDisabled: {
     opacity: 0.45,
   },
   resetLabel: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '700',
@@ -237,8 +280,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   disclaimer: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
+  resetLabelDisabled: {
+    color: colors.disabled,
+  },
+  appearanceList: {
+    gap: Spacing.two,
+  },
+  appearanceOption: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
+    paddingHorizontal: Spacing.three,
+    justifyContent: 'center',
+  },
+  appearanceOptionSelected: {
+    backgroundColor: colors.backgroundSelected,
+    borderColor: colors.accent,
+  },
+  appearanceLabel: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  appearanceLabelSelected: {
+    color: colors.text,
+  },
 });
+}

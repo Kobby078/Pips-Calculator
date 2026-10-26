@@ -1,5 +1,6 @@
 import { ACCOUNT_CURRENCIES, type AccountCurrency, DEFAULT_ACCOUNT_CURRENCY } from '../constants/currencies';
 import { findInstrument } from '../constants/instruments';
+import { parseAppearancePreference, type AppearancePreference } from './appearance';
 import { isPositiveDecimal, sanitizeDecimal } from './decimal-input';
 import type { ResultRow } from './present-position';
 import type { RiskInputMode } from './trading-calculations';
@@ -50,6 +51,8 @@ export type StoredCalculatorSettings = {
   instrumentLots: Record<string, InstrumentVolume>;
   /** Absent on settings saved before trade preferences existed. */
   preferences?: TradePreferences;
+  /** Absent on settings saved before appearance existed. Missing means System Default. */
+  appearance?: AppearancePreference;
 };
 
 /** Clears the saved trade setup. Currency and broker lot settings stay. */
@@ -179,12 +182,14 @@ export function parseStoredSettings(raw: string | null): StoredCalculatorSetting
       ? (record.currency as AccountCurrency)
       : DEFAULT_ACCOUNT_CURRENCY;
     const preferences = readPreferences(record.preferences);
+    const appearance = parseAppearancePreference(record.appearance);
     return {
       currency,
       minimumLotSize: readString(record.minimumLotSize, DEFAULT_MINIMUM_LOT),
       lotIncrement: readString(record.lotIncrement, DEFAULT_LOT_INCREMENT),
       instrumentLots: readInstrumentLots(record.instrumentLots),
       ...(preferences ? { preferences } : {}),
+      ...(appearance ? { appearance } : {}),
     };
   } catch {
     return null;

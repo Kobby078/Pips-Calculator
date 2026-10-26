@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AccountCurrency, DEFAULT_ACCOUNT_CURRENCY } from '@/constants/currencies';
+import { appearanceOrDefault, type AppearancePreference } from '@/lib/appearance';
 import {
   DEFAULT_LOT_INCREMENT,
   DEFAULT_MINIMUM_LOT,
@@ -31,6 +32,8 @@ type SettingsContextValue = {
   tradeRevision: number;
   updateTrade: (patch: Partial<TradePreferences>) => void;
   resetTradePreferences: () => void;
+  appearance: AppearancePreference;
+  setAppearance: (appearance: AppearancePreference) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -42,6 +45,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [lotIncrement, setLotIncrement] = useState(DEFAULT_LOT_INCREMENT);
   const [instrumentLots, setInstrumentLots] = useState<Record<string, InstrumentVolume>>({});
   const [trade, setTrade] = useState<TradePreferences>(EMPTY_TRADE_PREFERENCES);
+  const [appearance, setAppearance] = useState<AppearancePreference>('system');
   const [tradeRevision, setTradeRevision] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const ignoreTradeEdits = useRef(false);
@@ -108,6 +112,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setLotIncrement(stored.lotIncrement);
           setInstrumentLots(stored.instrumentLots);
           setTrade(stored.preferences ?? { ...EMPTY_TRADE_PREFERENCES });
+          setAppearance(appearanceOrDefault(stored.appearance));
         }
         setHydrated(true);
       })
@@ -125,9 +130,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (!hydrated) {
       return;
     }
-    const payload = serializeSettings({ currency, minimumLotSize, lotIncrement, instrumentLots, preferences: trade });
+    const payload = serializeSettings({
+      currency,
+      minimumLotSize,
+      lotIncrement,
+      instrumentLots,
+      preferences: trade,
+      appearance,
+    });
     void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, payload).catch(() => undefined);
-  }, [currency, hydrated, instrumentLots, lotIncrement, minimumLotSize, trade]);
+  }, [appearance, currency, hydrated, instrumentLots, lotIncrement, minimumLotSize, trade]);
 
   const value = useMemo(
     () => ({
@@ -146,6 +158,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       tradeRevision,
       updateTrade,
       resetTradePreferences,
+      appearance,
+      setAppearance,
     }),
     [
       hydrated,
@@ -161,6 +175,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       tradeRevision,
       updateTrade,
       resetTradePreferences,
+      appearance,
     ],
   );
 

@@ -30,15 +30,15 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  background: #16161d;
-  border: 1px solid #2e2c38;
+  background: var(--atlas-background-element);
+  border: 1px solid var(--atlas-divider);
   border-radius: 16px;
   padding: 16px;
 }
 
 .kicker {
   margin: 0;
-  color: #6d4f96;
+  color: var(--atlas-accent);
   font-size: 12px;
   line-height: 16px;
   font-weight: 700;

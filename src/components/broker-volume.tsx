@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
-import { Palette, Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 import {
   COMMON_MINIMUM_LOTS,
@@ -20,6 +21,7 @@ type BrokerVolumeProps = {
 };
 
 export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: BrokerVolumeProps) {
+  const styles = useThemedStyles(createStyles);
   const grid = describeVolumeGrid(resolved.minimumLot, resolved.lotIncrement);
   const [open, setOpen] = useState(grid.kind === 'incompatible' || !resolved.valid);
   const [customOpen, setCustomOpen] = useState(false);
@@ -133,7 +135,8 @@ export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: Brok
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   wrap: {
     gap: Spacing.two,
   },
@@ -141,8 +144,8 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceRaised,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     flexDirection: 'row',
@@ -155,7 +158,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   toggle: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '700',
@@ -164,13 +167,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   question: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
   },
   hint: {
-    color: Palette.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -185,26 +188,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceRaised,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipSelected: {
-    backgroundColor: Palette.backgroundSelected,
-    borderColor: Palette.accent,
+    backgroundColor: colors.backgroundSelected,
+    borderColor: colors.accent,
   },
   chipLabel: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
   },
   chipLabelSelected: {
-    color: Palette.text,
+    color: colors.text,
   },
   error: {
-    color: Palette.danger,
+    color: colors.error,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -214,7 +217,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   defaultsLabel: {
-    color: Palette.accent,
+    color: colors.accent,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '700',
@@ -223,3 +226,4 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
 });
+}

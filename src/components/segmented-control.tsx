@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-theme';
 
 type Segment<T extends string> = {
   value: T;
@@ -20,6 +21,7 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
 }: SegmentedControlProps<T>) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -49,12 +51,13 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   wrap: {
     gap: Spacing.two,
   },
   label: {
-    color: Palette.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
@@ -64,9 +67,9 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     padding: 4,
     borderRadius: 14,
-    backgroundColor: Palette.surfaceRaised,
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: colors.border,
   },
   segment: {
     flex: 1,
@@ -77,18 +80,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   segmentSelected: {
-    backgroundColor: Palette.backgroundSelected,
+    backgroundColor: colors.backgroundSelected,
   },
   segmentLabel: {
-    color: Palette.textSecondary,
+    color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '600',
+    textAlign: 'center',
   },
   segmentLabelSelected: {
-    color: Palette.text,
+    color: colors.text,
   },
   pressed: {
     opacity: 0.8,
   },
 });
+}
