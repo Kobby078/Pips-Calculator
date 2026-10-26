@@ -2,15 +2,16 @@ import { forwardRef, type ComponentRef, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, PhoneContentWidth, Spacing } from '@/constants/theme';
 
 type ScreenScrollProps = {
   children: ReactNode;
   footer?: ReactNode;
+  maxWidth?: number;
 };
 
 export const ScreenScroll = forwardRef<ComponentRef<typeof ScrollView>, ScreenScrollProps>(function ScreenScroll(
-  { children, footer },
+  { children, footer, maxWidth = PhoneContentWidth },
   ref,
 ) {
   const insets = useSafeAreaInsets();
@@ -27,6 +28,7 @@ export const ScreenScroll = forwardRef<ComponentRef<typeof ScrollView>, ScreenSc
           contentContainerStyle={[
             styles.content,
             {
+              maxWidth,
               paddingTop: topInset + Spacing.three,
               paddingBottom: footer ? Spacing.four : Spacing.five,
             },
@@ -37,7 +39,11 @@ export const ScreenScroll = forwardRef<ComponentRef<typeof ScrollView>, ScreenSc
           {children}
         </ScrollView>
       </View>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? (
+        <View style={[styles.footer, Platform.OS === 'web' ? { paddingBottom: Spacing.two + insets.bottom } : null]}>
+          {footer}
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 });
@@ -55,7 +61,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
     gap: Spacing.three,
-    maxWidth: 640,
     width: '100%',
     alignSelf: 'center',
   },

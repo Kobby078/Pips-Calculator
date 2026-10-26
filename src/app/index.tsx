@@ -1,8 +1,11 @@
 import { useRef, useState, type ComponentRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BrokerVolume } from '@/components/broker-volume';
+import { DashboardLayout } from '@/components/dashboard-layout';
+import { FieldPair } from '@/components/field-pair';
 import { FormField } from '@/components/form-field';
+import { FormSections } from '@/components/form-sections';
 import { ReferencePrice } from '@/components/reference-price';
 import { ResultPanel } from '@/components/result-panel';
 import { ScreenHeader } from '@/components/screen-header';
@@ -239,9 +242,11 @@ export default function CalculatorScreen() {
       ],
       metrics: presented.metrics,
     });
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToEnd({ animated: false });
-    });
+    if (Platform.OS !== 'web' || window.innerWidth < 1024) {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollToEnd({ animated: false });
+      });
+    }
   }
 
   function onUsePrice() {
@@ -268,6 +273,18 @@ export default function CalculatorScreen() {
     clearError('conversion');
   }
 
+  function calculateButton(label: string, dock: boolean) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onCalculate}
+        style={({ pressed }) => [dock ? styles.calculate : styles.inlineCalculate, pressed ? styles.pressed : null]}>
+        <Text style={styles.calculateLabel}>{label}</Text>
+      </Pressable>
+    );
+  }
+
   if (!hydrated) {
     return (
       <ScreenScroll>
@@ -282,22 +299,22 @@ export default function CalculatorScreen() {
   return (
     <ScreenScroll
       ref={scrollRef}
-      footer={
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Calculate"
-          onPress={onCalculate}
-          style={({ pressed }) => [styles.calculate, pressed ? styles.pressed : null]}>
-          <Text style={styles.calculateLabel}>Calculate</Text>
-        </Pressable>
-      }>
+      footer={calculateButton('Calculate', true)}>
       <ScreenHeader
         title="Risk Calculator"
         subtitle="Size a position from your balance, risk, and price levels. Reference prices are indicative."
       />
 
-      <View style={styles.card}>
-        <View style={styles.field}>
+      <DashboardLayout
+        setup={
+          <FormSections
+            sections={[
+              {
+                key: 'trade',
+                title: 'Trade',
+                children: (
+                  <FieldPair>
+                    <View style={styles.field}>
           <Text style={styles.label}>Instrument</Text>
           <Pressable
             accessibilityRole="button"
@@ -346,9 +363,8 @@ export default function CalculatorScreen() {
               })}
             </View>
           ) : null}
-        </View>
-
-        <SegmentedControl
+                    </View>
+                    <SegmentedControl
           label="Direction"
           value={direction}
           onChange={(next) => {
@@ -360,9 +376,16 @@ export default function CalculatorScreen() {
             { value: 'buy', label: 'Buy' },
             { value: 'sell', label: 'Sell' },
           ]}
-        />
-
-        <FormField
+                    />
+                  </FieldPair>
+                ),
+              },
+              {
+                key: 'risk',
+                title: 'Account and risk',
+                children: (
+                  <FieldPair>
+                    <FormField
           key={`balance-${tradeRevision}`}
           label={`Account balance (${currency})`}
           value={balance}
@@ -376,9 +399,9 @@ export default function CalculatorScreen() {
             `Denominated in ${currency}. Changing the account currency does not convert this number.`
           }
           error={errors.balance}
-        />
-
-        <SegmentedControl
+                    />
+                    <View style={styles.riskStack}>
+                      <SegmentedControl
           label="Risk"
           value={riskMode}
           onChange={onRiskModeChange}
@@ -403,9 +426,18 @@ export default function CalculatorScreen() {
               : undefined
           }
           error={errors.riskValue}
-        />
-
-        <FormField
+                      />
+                    </View>
+                  </FieldPair>
+                ),
+              },
+              {
+                key: 'levels',
+                title: 'Price levels',
+                children: (
+                  <>
+                    <FieldPair>
+                      <FormField
           label="Entry price"
           value={entry}
           onChangeText={(value) => {
@@ -425,9 +457,9 @@ export default function CalculatorScreen() {
           }}
           placeholder="Enter stop loss"
           error={errors.stopLoss}
-        />
-
-        <FormField
+                      />
+                    </FieldPair>
+                    <FormField
           label="Take profit"
           value={takeProfit}
           onChangeText={(value) => {
@@ -438,9 +470,17 @@ export default function CalculatorScreen() {
           hint="Leave blank if you only want to define the stop."
           optional
           error={errors.takeProfit}
-        />
-
-        <ReferencePrice
+                    />
+                  </>
+                ),
+              },
+              {
+                key: 'market',
+                title: 'Reference',
+                plain: true,
+                children: (
+                  <>
+                    <ReferencePrice
           view={reference}
           variant={
             selected?.spec?.baseCurrency === 'XAU' && selected?.spec?.quoteCurrency === 'USD' ? 'gold' : 'forex'
@@ -481,9 +521,14 @@ export default function CalculatorScreen() {
             onUseDefaults={() => clearInstrumentVolume(selected.symbol)}
           />
         ) : null}
-      </View>
-
-      <ResultPanel
+                  </>
+                ),
+              },
+            ]}
+          />
+        }
+        result={
+          <ResultPanel
         status={panel === null ? 'empty' : outdated ? 'outdated' : panel.status}
         title={panel && !outdated ? panel.title : undefined}
         body={panel && !outdated ? panel.body : undefined}
@@ -494,20 +539,15 @@ export default function CalculatorScreen() {
         lotDetail={panel && !outdated && panel.status === 'ready' ? panel.lotDetail : null}
         summary={panel && !outdated ? panel.summary : []}
         metrics={panel && !outdated ? panel.metrics : undefined}
+          />
+        }
+        calculate={calculateButton('Calculate Risk', false)}
       />
     </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Palette.backgroundElement,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
   field: {
     gap: Spacing.two,
   },
@@ -595,6 +635,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  riskStack: {
+    gap: Spacing.three,
+  },
   calculate: {
     minHeight: 56,
     borderRadius: 14,
@@ -604,6 +647,14 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     width: '100%',
     alignSelf: 'center',
+  },
+  inlineCalculate: {
+    minHeight: 56,
+    borderRadius: 14,
+    backgroundColor: Palette.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   calculateLabel: {
     color: '#FFFFFF',

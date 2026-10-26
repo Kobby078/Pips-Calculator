@@ -68,3 +68,7 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+/** Centered web dashboard. Phone layouts stay on PhoneContentWidth. */
+export const DashboardMaxWidth = 1360;
+export const SettingsContentWidth = 880;
+export const PhoneContentWidth = 640;

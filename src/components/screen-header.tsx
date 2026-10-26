@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { Palette, Spacing } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -11,7 +11,9 @@ type ScreenHeaderProps = {
 export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
   return (
     <View style={styles.header}>
-      <ThemedText style={styles.brand}>ATLASJFX</ThemedText>
+      <ThemedText style={styles.brand} {...(Platform.OS === 'web' ? { dataSet: { pageBrand: 'true' } } : {})}>
+        ATLASJFX
+      </ThemedText>
       <ThemedText style={styles.title}>{title}</ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.subtitle}>
         {subtitle}

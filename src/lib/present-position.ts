@@ -19,6 +19,10 @@ export type PresentedPosition = {
   metrics: ResultRow[];
 };
 
+/** Shown with a finished estimate. The calculator form stays free of this copy. */
+export const TRADING_RISK_DISCLOSURE =
+  'Educational estimate only. Results ignore commission, spread, and slippage, and they are not a broker quote or a recommendation to trade.';
+
 const EMPTY_METRICS: ResultRow[] = [
   { label: 'Risk budget', value: '—' },
   { label: 'Estimated loss', value: '—' },

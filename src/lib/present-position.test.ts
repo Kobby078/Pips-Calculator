@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { calculationFingerprint } from './calculation-fingerprint';
-import { markIndicativeConversion, presentPosition } from './present-position';
+import { markIndicativeConversion, presentPosition, TRADING_RISK_DISCLOSURE } from './present-position';
 import { calculatePosition, type PositionCalculationInput } from './trading-calculations';
 import { findInstrument } from '../constants/instruments';
 
@@ -39,6 +39,13 @@ function metric(rows: { label: string; value: string }[], label: string): string
   assert.ok(row, `missing ${label}`);
   return row.value;
 }
+
+test('the trading-risk disclosure names the costs the estimate leaves out', () => {
+  assert.match(TRADING_RISK_DISCLOSURE, /commission/i);
+  assert.match(TRADING_RISK_DISCLOSURE, /spread/i);
+  assert.match(TRADING_RISK_DISCLOSURE, /slippage/i);
+  assert.match(TRADING_RISK_DISCLOSURE, /not a broker quote/i);
+});
 
 test('the $1000 EURUSD case is labeled in USD with hundredths on the lot', () => {
   const view = presented();

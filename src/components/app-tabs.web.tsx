@@ -8,15 +8,14 @@ import {
 } from 'expo-router/ui';
 import { Pressable, View, StyleSheet, type PressableProps } from 'react-native';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import css from '@/components/app-tabs.module.css';
+import { Palette } from '@/constants/theme';
 
 import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
 
 export default function AppTabs() {
   return (
     <Tabs>
-      <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="calculator" href="/" asChild>
@@ -27,70 +26,48 @@ export default function AppTabs() {
           </TabTrigger>
         </CustomTabList>
       </TabList>
+      <TabSlot style={styles.slot} />
     </Tabs>
   );
 }
 
+type WebPressableProps = PressableProps & { className?: string };
+
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
     <Pressable
-      {...(props as PressableProps)}
+      {...(props as WebPressableProps)}
+      className={isFocused ? `${css.link} ${css.linkOn}` : css.link}
       style={({ pressed }) => (pressed ? styles.pressed : undefined)}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
-          {children}
-        </ThemedText>
-      </ThemedView>
+      <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+        {children}
+      </ThemedText>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
   return (
-    <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
-          ATLASJFX
-        </ThemedText>
-
-        {props.children}
-      </ThemedView>
+    <View {...props} style={[props.style, styles.tabListContainer]} className={css.shell}>
+      <div className={css.bar}>
+        <span className={css.brand}>ATLASJFX</span>
+        <nav className={css.nav}>{props.children}</nav>
+      </div>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  slot: {
+    flex: 1,
+    minHeight: 0,
+  },
   tabListContainer: {
-    position: 'absolute',
     width: '100%',
-    padding: Spacing.three,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  innerContainer: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.five,
-    borderRadius: Spacing.five,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexGrow: 1,
-    gap: Spacing.two,
-    maxWidth: MaxContentWidth,
-  },
-  brandText: {
-    marginRight: 'auto',
+    flexShrink: 0,
+    backgroundColor: Palette.background,
   },
   pressed: {
     opacity: 0.7,
-  },
-  tabButtonView: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-    minHeight: 44,
-    justifyContent: 'center',
   },
 });

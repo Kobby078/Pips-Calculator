@@ -1,12 +1,14 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { ScreenHeader } from '@/components/screen-header';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { useSettings } from '@/components/settings-context';
 import { ACCOUNT_CURRENCIES, type AccountCurrency } from '@/constants/currencies';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, SettingsContentWidth, Spacing } from '@/constants/theme';
 import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
+import { TRADING_RISK_DISCLOSURE } from '@/lib/present-position';
 
 export default function SettingsScreen() {
   const {
@@ -20,8 +22,13 @@ export default function SettingsScreen() {
     hydrated,
     resetTradePreferences,
   } = useSettings();
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   function confirmReset() {
+    if (Platform.OS === 'web') {
+      setConfirmingReset(true);
+      return;
+    }
     Alert.alert(
       'Reset preferences?',
       'This clears the saved instrument, balance, and risk. Broker lot sizes and account currency stay on this device.',
@@ -32,8 +39,14 @@ export default function SettingsScreen() {
     );
   }
 
+  function applyWebReset() {
+    resetTradePreferences();
+    setConfirmingReset(false);
+  }
+
   return (
     <ScreenScroll>
+      <View style={styles.column}>
       <ScreenHeader
         title="Settings"
         subtitle="Saved on this device. Lot defaults apply until you set a broker size on the calculator."
@@ -104,12 +117,43 @@ export default function SettingsScreen() {
         <Text style={styles.hint}>
           Clears the saved instrument, balance, and risk. Lot sizes and account currency stay saved.
         </Text>
+        {confirmingReset ? (
+          <View style={styles.confirm}>
+            <Text style={styles.label}>Reset preferences?</Text>
+            <Text style={styles.hint}>
+              This clears the saved instrument, balance, and risk. Broker lot sizes and account currency stay on this
+              device.
+            </Text>
+            <View style={styles.confirmActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setConfirmingReset(false)}
+                style={({ pressed }) => [styles.reset, styles.confirmAction, pressed ? styles.pressed : null]}>
+                <Text style={styles.resetLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={applyWebReset}
+                style={({ pressed }) => [styles.reset, styles.confirmAction, pressed ? styles.pressed : null]}>
+                <Text style={styles.resetLabel}>Reset</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.disclaimer}>{TRADING_RISK_DISCLOSURE}</Text>
       </View>
     </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
+  column: {
+    width: '100%',
+    maxWidth: SettingsContentWidth,
+    alignSelf: 'flex-start',
+    gap: Spacing.three,
+  },
   card: {
     backgroundColor: Palette.backgroundElement,
     borderRadius: 16,
@@ -181,5 +225,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '700',
+  },
+  confirm: {
+    gap: Spacing.two,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  confirmAction: {
+    flex: 1,
+  },
+  disclaimer: {
+    color: Palette.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

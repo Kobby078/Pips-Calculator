@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette, Spacing } from '@/constants/theme';
-import { emptyMetricRows, type ResultRow } from '@/lib/present-position';
+import { emptyMetricRows, TRADING_RISK_DISCLOSURE, type ResultRow } from '@/lib/present-position';
 
 type ResultPanelProps = {
   status: 'empty' | 'outdated' | 'blocked' | 'ready';
@@ -79,6 +79,7 @@ export function ResultPanel({
           </View>
         ))}
       </View>
+      {status === 'ready' ? <Text style={styles.note}>{TRADING_RISK_DISCLOSURE}</Text> : null}
     </View>
   );
 }
