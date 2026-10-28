@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ATLASJFX",
+    "name": "ATLASJFX Risk",
     "slug": "atlasjfx-calculator",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "softwareKeyboardLayoutMode": "resize",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.saintxd.atlasjfxcalculator"
     },
     "web": {
       "output": "server",
@@ -42,6 +43,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "3210e1aa-3d5d-4df5-adab-cd815529a862"
+      }
     }
   }
 }

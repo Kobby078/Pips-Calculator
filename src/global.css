@@ -34,28 +34,28 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
-    --atlas-background: #f6f5f8;
+    --atlas-background: #f5f4f9;
     --atlas-background-element: #ffffff;
-    --atlas-surface-raised: #f3f1f6;
-    --atlas-background-selected: #e4d8f3;
+    --atlas-surface-raised: #ece9f3;
+    --atlas-background-selected: #e6dcf5;
     --atlas-text: #1a1a1f;
     --atlas-text-secondary: #3a3844;
     --atlas-text-muted: #4e4c59;
     --atlas-accent: #5c3d86;
-    --atlas-accent-soft: #f3eef8;
-    --atlas-border: #868092;
+    --atlas-accent-soft: #f1ecf8;
+    --atlas-border: #d2cddd;
     --atlas-button: #6d4f96;
     --atlas-button-text: #ffffff;
     --atlas-positive: #146b43;
     --atlas-warning: #7a4e00;
     --atlas-error: #8e2433;
     --atlas-danger: #8e2433;
-    --atlas-disabled: #6e6c78;
-    --atlas-reference: #f3eef8;
-    --atlas-placeholder: #5c5968;
+    --atlas-disabled: #747180;
+    --atlas-reference: #f1ecf8;
+    --atlas-placeholder: #666275;
     --atlas-input: #ffffff;
-    --atlas-nav: #f6f5f8;
-    --atlas-divider: #868092;
+    --atlas-nav: #f5f4f9;
+    --atlas-divider: #e4e0ec;
   }
 }
 
@@ -87,34 +87,52 @@
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --atlas-background: #f6f5f8;
+  --atlas-background: #f5f4f9;
   --atlas-background-element: #ffffff;
-  --atlas-surface-raised: #f3f1f6;
-  --atlas-background-selected: #e4d8f3;
+  --atlas-surface-raised: #ece9f3;
+  --atlas-background-selected: #e6dcf5;
   --atlas-text: #1a1a1f;
   --atlas-text-secondary: #3a3844;
   --atlas-text-muted: #4e4c59;
   --atlas-accent: #5c3d86;
-  --atlas-accent-soft: #f3eef8;
-  --atlas-border: #868092;
+  --atlas-accent-soft: #f1ecf8;
+  --atlas-border: #d2cddd;
   --atlas-button: #6d4f96;
   --atlas-button-text: #ffffff;
   --atlas-positive: #146b43;
   --atlas-warning: #7a4e00;
   --atlas-error: #8e2433;
   --atlas-danger: #8e2433;
-  --atlas-disabled: #6e6c78;
-  --atlas-reference: #f3eef8;
-  --atlas-placeholder: #5c5968;
+  --atlas-disabled: #747180;
+  --atlas-reference: #f1ecf8;
+  --atlas-placeholder: #666275;
   --atlas-input: #ffffff;
-  --atlas-nav: #f6f5f8;
-  --atlas-divider: #868092;
+  --atlas-nav: #f5f4f9;
+  --atlas-divider: #e4e0ec;
 }
 
 html,
 body {
   background: var(--atlas-background);
   color: var(--atlas-text);
+}
+
+:root[data-theme='light'] body {
+  background-color: var(--atlas-background);
+  background-image:
+    radial-gradient(at 90% 0%, rgba(138, 43, 226, 0.04) 0px, transparent 50%),
+    radial-gradient(at 10% 25%, rgba(109, 79, 150, 0.03) 0px, transparent 40%);
+  background-attachment: fixed;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) body {
+    background-color: var(--atlas-background);
+    background-image:
+      radial-gradient(at 90% 0%, rgba(138, 43, 226, 0.04) 0px, transparent 50%),
+      radial-gradient(at 10% 25%, rgba(109, 79, 150, 0.03) 0px, transparent 40%);
+    background-attachment: fixed;
+  }
 }
 
 @media (min-width: 768px) {

@@ -239,14 +239,25 @@ function createStyles(colors: ThemeColors) {
     alignSelf: 'flex-start',
     gap: Spacing.three,
   },
-  card: {
-    backgroundColor: colors.backgroundElement,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: Spacing.three,
-    gap: Spacing.four,
-  },
+    card: {
+      backgroundColor: colors.backgroundElement,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.three,
+      gap: Spacing.four,
+      ...Platform.select({
+        android: {
+          elevation: 1.5,
+        },
+        ios: {
+          shadowColor: '#3A2E50',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+        },
+      }),
+    },
   field: {
     gap: Spacing.two,
   },

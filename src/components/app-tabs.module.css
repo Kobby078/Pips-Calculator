@@ -17,6 +17,25 @@
   padding: 8px 16px;
   border-radius: 32px;
   background: var(--atlas-background-element);
+  border: 1px solid var(--atlas-border);
+}
+
+:global(:root[data-theme='light']) .bar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(138, 43, 226, 0.14);
+  box-shadow: 0 4px 24px -2px rgba(109, 79, 150, 0.08);
+}
+
+@media (prefers-color-scheme: light) {
+  :global(:root:not([data-theme='dark'])) .bar {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(138, 43, 226, 0.14);
+    box-shadow: 0 4px 24px -2px rgba(109, 79, 150, 0.08);
+  }
 }
 
 .brand {

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { HelpButton, HelpCallout } from '@/components/help-info';
 import { Spacing, type ThemeColors } from '@/constants/theme';
@@ -116,14 +116,25 @@ function SummaryRow({
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-  panel: {
-    backgroundColor: colors.backgroundElement,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
+    panel: {
+      backgroundColor: colors.backgroundElement,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.three,
+      gap: Spacing.two,
+      ...Platform.select({
+        android: {
+          elevation: 2,
+        },
+        ios: {
+          shadowColor: '#3A2E50',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.07,
+          shadowRadius: 10,
+        },
+      }),
+    },
   kicker: {
     color: colors.accent,
     fontSize: 12,

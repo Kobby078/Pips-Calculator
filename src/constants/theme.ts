@@ -57,28 +57,28 @@ const dark = {
 } as const satisfies ThemeColors;
 
 const light = {
-  background: '#F6F5F8',
+  background: '#F5F4F9',
   backgroundElement: '#FFFFFF',
-  surfaceRaised: '#F3F1F6',
-  backgroundSelected: '#E4D8F3',
+  surfaceRaised: '#ECE9F3',
+  backgroundSelected: '#E6DCF5',
   text: '#1A1A1F',
   textSecondary: '#3A3844',
   textMuted: '#4E4C59',
   accent: '#5C3D86',
-  accentSoft: '#F3EEF8',
-  border: '#868092',
+  accentSoft: '#F1ECF8',
+  border: '#D2CDDD',
   button: '#6D4F96',
   buttonText: '#FFFFFF',
   positive: '#146B43',
   warning: '#7A4E00',
   error: '#8E2433',
   danger: '#8E2433',
-  disabled: '#6E6C78',
-  reference: '#F3EEF8',
-  placeholder: '#5C5968',
+  disabled: '#747180',
+  reference: '#F1ECF8',
+  placeholder: '#666275',
   input: '#FFFFFF',
-  nav: '#F6F5F8',
-  divider: '#868092',
+  nav: '#F5F4F9',
+  divider: '#E4E0EC',
 } as const satisfies ThemeColors;
 
 export const Colors = {

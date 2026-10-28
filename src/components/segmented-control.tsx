@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { HelpButton, HelpCallout } from '@/components/help-info';
 import { Spacing, type ThemeColors } from '@/constants/theme';
@@ -99,9 +99,22 @@ function createStyles(colors: ThemeColors) {
     justifyContent: 'center',
     paddingHorizontal: Spacing.two,
   },
-  segmentSelected: {
-    backgroundColor: colors.backgroundSelected,
-  },
+    segmentSelected: {
+      backgroundColor: colors.backgroundSelected,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Platform.select({
+        android: {
+          elevation: 1,
+        },
+        ios: {
+          shadowColor: '#3A2E50',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.08,
+          shadowRadius: 3,
+        },
+      }),
+    },
   segmentLabel: {
     color: colors.textSecondary,
     fontSize: 15,

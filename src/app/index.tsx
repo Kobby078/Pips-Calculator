@@ -697,24 +697,46 @@ function createCalculatorStyles(colors: ThemeColors) {
   riskStack: {
     gap: Spacing.three,
   },
-  calculate: {
-    minHeight: 56,
-    borderRadius: 14,
-    backgroundColor: colors.button,
-    alignItems: 'center',
-    justifyContent: 'center',
-    maxWidth: 640,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  inlineCalculate: {
-    minHeight: 56,
-    borderRadius: 14,
-    backgroundColor: colors.button,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
+    calculate: {
+      minHeight: 56,
+      borderRadius: 14,
+      backgroundColor: colors.button,
+      alignItems: 'center',
+      justifyContent: 'center',
+      maxWidth: 640,
+      width: '100%',
+      alignSelf: 'center',
+      ...Platform.select({
+        android: {
+          elevation: 3,
+        },
+        ios: {
+          shadowColor: '#341A59',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.25,
+          shadowRadius: 6,
+        },
+      }),
+    },
+    inlineCalculate: {
+      minHeight: 56,
+      borderRadius: 14,
+      backgroundColor: colors.button,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      ...Platform.select({
+        android: {
+          elevation: 3,
+        },
+        ios: {
+          shadowColor: '#341A59',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.25,
+          shadowRadius: 6,
+        },
+      }),
+    },
   calculateLabel: {
     color: colors.buttonText,
     fontSize: 17,
