@@ -12,6 +12,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ScreenScroll } from '@/components/screen-scroll';
 import { SegmentedControl } from '@/components/segmented-control';
 import { useSettings } from '@/components/settings-context';
+import { SpreadAdjustment } from '@/components/spread-adjustment';
 import { INSTRUMENTS } from '@/constants/instruments';
 import { Spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-theme';
@@ -43,7 +44,8 @@ type FieldKey =
   | 'entry'
   | 'stopLoss'
   | 'takeProfit'
-  | 'conversion';
+  | 'conversion'
+  | 'spread';
 
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
@@ -59,6 +61,7 @@ type PanelState = {
   lotDetail?: string | null;
   summary?: ResultRow[];
   metrics?: ResultRow[];
+  disclosure?: string;
 };
 
 export default function CalculatorScreen() {
@@ -71,9 +74,12 @@ export default function CalculatorScreen() {
     instrumentLots,
     setInstrumentVolume,
     clearInstrumentVolume,
+    instrumentSpreads,
+    setInstrumentSpread,
     trade,
     tradeRevision,
     updateTrade,
+    showHelpExplanations,
   } = useSettings();
   const styles = useThemedStyles(createCalculatorStyles);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -81,6 +87,9 @@ export default function CalculatorScreen() {
   const balance = trade.balance;
   const riskMode = trade.riskMode;
   const riskValue = trade.riskValue;
+  const spreadEnabled = trade.spreadEnabled ?? false;
+  const spreadPriceMode = trade.spreadPriceMode ?? 'chart';
+  const currentSpread = instrument ? (instrumentSpreads[instrument] ?? '') : '';
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [direction, setDirection] = useState<TradeDirection>('buy');
   const [entry, setEntry] = useState('');
@@ -133,6 +142,9 @@ export default function CalculatorScreen() {
     minimumLotSize: lots.minimumLot,
     lotIncrement: lots.lotIncrement,
     lotSource: lots.source,
+    spreadEnabled,
+    spreadValue: currentSpread,
+    spreadPriceMode,
   });
   const outdated = panel !== null && panel.inputKey !== inputKey;
 
@@ -204,6 +216,11 @@ export default function CalculatorScreen() {
       minimumLot: readPositiveDecimal(lots.minimumLot),
       lotIncrement: readPositiveDecimal(lots.lotIncrement),
       manualQuoteToAccountRate: needsConversion ? readPositiveDecimal(conversionRate) : 'empty',
+      spread: {
+        enabled: spreadEnabled,
+        priceMode: spreadPriceMode,
+        value: readPositiveDecimal(currentSpread),
+      },
     });
 
     if (!result.ok) {
@@ -243,6 +260,7 @@ export default function CalculatorScreen() {
         lotSettingsSummary(lots.source, result.symbol),
       ],
       metrics: presented.metrics,
+      disclosure: presented.disclosure,
     });
     if (Platform.OS !== 'web' || window.innerWidth < 1024) {
       requestAnimationFrame(() => {
@@ -388,46 +406,51 @@ export default function CalculatorScreen() {
                 children: (
                   <FieldPair>
                     <FormField
-          key={`balance-${tradeRevision}`}
-          label={`Account balance (${currency})`}
-          value={balance}
-          onChangeText={(value) => {
-            updateTrade({ balance: sanitizeDecimal(value) });
-            clearError('balance');
-          }}
-          placeholder={`Enter balance in ${currency}`}
-          hint={
-            currencyNotice ??
-            `Denominated in ${currency}. Changing the account currency does not convert this number.`
-          }
-          error={errors.balance}
+                      key={`balance-${tradeRevision}`}
+                      label={`Account balance (${currency})`}
+                      value={balance}
+                      onChangeText={(value) => {
+                        updateTrade({ balance: sanitizeDecimal(value) });
+                        clearError('balance');
+                      }}
+                      placeholder={`Enter balance in ${currency}`}
+                      hint={
+                        currencyNotice ??
+                        `Denominated in ${currency}. Changing the account currency does not convert this number.`
+                      }
+                      hintVisible={currencyNotice !== null || showHelpExplanations}
+                      helpTopic="balance"
+                      error={errors.balance}
                     />
                     <View style={styles.riskStack}>
                       <SegmentedControl
-          label="Risk"
-          value={riskMode}
-          onChange={onRiskModeChange}
-          options={[
-            { value: 'percent', label: 'Percentage' },
-            { value: 'amount', label: currency },
-          ]}
-        />
+                        label="Risk"
+                        value={riskMode}
+                        onChange={onRiskModeChange}
+                        helpTopic="risk"
+                        options={[
+                          { value: 'percent', label: 'Percentage' },
+                          { value: 'amount', label: currency },
+                        ]}
+                      />
 
-        <FormField
-          key={`risk-${tradeRevision}`}
-          label={riskMode === 'percent' ? 'Risk percentage' : `Risk amount (${currency})`}
-          value={riskValue}
-          onChangeText={(value) => {
-            updateTrade({ riskValue: sanitizeDecimal(value) });
-            clearError('riskValue');
-          }}
-          placeholder={riskMode === 'percent' ? 'Enter risk percentage' : `Enter risk in ${currency}`}
-          hint={
-            riskMode === 'amount'
-              ? `Denominated in ${currency}. Changing the account currency does not convert this number.`
-              : undefined
-          }
-          error={errors.riskValue}
+                      <FormField
+                        key={`risk-${tradeRevision}`}
+                        label={riskMode === 'percent' ? 'Risk percentage' : `Risk amount (${currency})`}
+                        value={riskValue}
+                        onChangeText={(value) => {
+                          updateTrade({ riskValue: sanitizeDecimal(value) });
+                          clearError('riskValue');
+                        }}
+                        placeholder={riskMode === 'percent' ? 'Enter risk percentage' : `Enter risk in ${currency}`}
+                        hint={
+                          riskMode === 'amount'
+                            ? `Denominated in ${currency}. Changing the account currency does not convert this number.`
+                            : undefined
+                        }
+                        hintVisible={showHelpExplanations}
+                        helpTopic="risk"
+                        error={errors.riskValue}
                       />
                     </View>
                   </FieldPair>
@@ -440,40 +463,70 @@ export default function CalculatorScreen() {
                   <>
                     <FieldPair>
                       <FormField
-          label="Entry price"
-          value={entry}
-          onChangeText={(value) => {
-            setEntry(sanitizeDecimal(value));
-            clearError('entry');
-          }}
-          placeholder="Enter entry price"
-          error={errors.entry}
-        />
+                        label="Entry price"
+                        value={entry}
+                        onChangeText={(value) => {
+                          setEntry(sanitizeDecimal(value));
+                          clearError('entry');
+                        }}
+                        placeholder="Enter entry price"
+                        helpTopic="entry"
+                        error={errors.entry}
+                      />
 
-        <FormField
-          label="Stop loss"
-          value={stopLoss}
-          onChangeText={(value) => {
-            setStopLoss(sanitizeDecimal(value));
-            clearError('stopLoss');
-          }}
-          placeholder="Enter stop loss"
-          error={errors.stopLoss}
+                      <FormField
+                        label="Stop loss"
+                        value={stopLoss}
+                        onChangeText={(value) => {
+                          setStopLoss(sanitizeDecimal(value));
+                          clearError('stopLoss');
+                        }}
+                        placeholder="Enter stop loss"
+                        helpTopic="stopLoss"
+                        error={errors.stopLoss}
                       />
                     </FieldPair>
                     <FormField
-          label="Take profit"
-          value={takeProfit}
-          onChangeText={(value) => {
-            setTakeProfit(sanitizeDecimal(value));
-            clearError('takeProfit');
-          }}
-          placeholder="Enter take profit"
-          hint="Leave blank if you only want to define the stop."
-          optional
-          error={errors.takeProfit}
+                      label="Take profit"
+                      value={takeProfit}
+                      onChangeText={(value) => {
+                        setTakeProfit(sanitizeDecimal(value));
+                        clearError('takeProfit');
+                      }}
+                      placeholder="Enter take profit"
+                      hint="Leave blank if you only want to define the stop."
+                      hintVisible={showHelpExplanations}
+                      helpTopic="takeProfit"
+                      optional
+                      error={errors.takeProfit}
                     />
                   </>
+                ),
+              },
+              {
+                key: 'spread',
+                title: 'Spread',
+                plain: true,
+                children: (
+                  <SpreadAdjustment
+                    symbol={selected?.symbol ?? null}
+                    isGold={selected?.spec?.baseCurrency === 'XAU' || selected?.spec?.kind === 'metal'}
+                    enabled={spreadEnabled}
+                    onToggleEnabled={(enabled) => {
+                      updateTrade({ spreadEnabled: enabled });
+                      clearError('spread');
+                    }}
+                    priceMode={spreadPriceMode}
+                    onChangePriceMode={(mode) => updateTrade({ spreadPriceMode: mode })}
+                    value={currentSpread}
+                    onChangeValue={(val) => {
+                      if (instrument) {
+                        setInstrumentSpread(instrument, sanitizeDecimal(val));
+                        clearError('spread');
+                      }
+                    }}
+                    error={errors.spread}
+                  />
                 ),
               },
               {
@@ -510,6 +563,8 @@ export default function CalculatorScreen() {
                 ? `Indicative reference rate from exchangerate.dev. Edit this field to override it. Refresh will not change it.`
                 : `Manual ${quoteCurrency} to ${currency} rate. A reference rate will not replace this value.`
             }
+            hintVisible={showHelpExplanations}
+            helpTopic="conversion"
             error={errors.conversion}
           />
         ) : null}
@@ -531,16 +586,17 @@ export default function CalculatorScreen() {
         }
         result={
           <ResultPanel
-        status={panel === null ? 'empty' : outdated ? 'outdated' : panel.status}
-        title={panel && !outdated ? panel.title : undefined}
-        body={panel && !outdated ? panel.body : undefined}
-        warning={panel && !outdated ? panel.warning : null}
-        note={panel && !outdated ? panel.note : null}
-        lotFits={panel && !outdated && panel.status === 'ready' ? panel.lotFits : undefined}
-        recommendedLot={panel && !outdated && panel.status === 'ready' ? panel.recommendedLot : null}
-        lotDetail={panel && !outdated && panel.status === 'ready' ? panel.lotDetail : null}
-        summary={panel && !outdated ? panel.summary : []}
-        metrics={panel && !outdated ? panel.metrics : undefined}
+            status={panel === null ? 'empty' : outdated ? 'outdated' : panel.status}
+            title={panel && !outdated ? panel.title : undefined}
+            body={panel && !outdated ? panel.body : undefined}
+            warning={panel && !outdated ? panel.warning : null}
+            note={panel && !outdated ? panel.note : null}
+            lotFits={panel && !outdated && panel.status === 'ready' ? panel.lotFits : undefined}
+            recommendedLot={panel && !outdated && panel.status === 'ready' ? panel.recommendedLot : null}
+            lotDetail={panel && !outdated && panel.status === 'ready' ? panel.lotDetail : null}
+            summary={panel && !outdated ? panel.summary : []}
+            metrics={panel && !outdated ? panel.metrics : undefined}
+            disclosure={panel && !outdated ? panel.disclosure : undefined}
           />
         }
         calculate={calculateButton('Calculate Risk', false)}

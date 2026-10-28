@@ -3,7 +3,7 @@ import { findInstrument } from '../constants/instruments';
 import { parseAppearancePreference, type AppearancePreference } from './appearance';
 import { isPositiveDecimal, sanitizeDecimal } from './decimal-input';
 import type { ResultRow } from './present-position';
-import type { RiskInputMode } from './trading-calculations';
+import type { PriceLevelMode, RiskInputMode } from './trading-calculations';
 
 /** Values the settings screen already described. Empty strings never reached the engine. */
 export const DEFAULT_MINIMUM_LOT = '0.01';
@@ -35,6 +35,8 @@ export type TradePreferences = {
   balance: string;
   riskMode: RiskInputMode;
   riskValue: string;
+  spreadEnabled?: boolean;
+  spreadPriceMode?: PriceLevelMode;
 };
 
 export const EMPTY_TRADE_PREFERENCES: TradePreferences = {
@@ -49,10 +51,13 @@ export type StoredCalculatorSettings = {
   minimumLotSize: string;
   lotIncrement: string;
   instrumentLots: Record<string, InstrumentVolume>;
+  instrumentSpreads?: Record<string, string>;
   /** Absent on settings saved before trade preferences existed. */
   preferences?: TradePreferences;
   /** Absent on settings saved before appearance existed. Missing means System Default. */
   appearance?: AppearancePreference;
+  /** Whether supplementary guidance is shown below inputs. Defaults to false. */
+  showHelpExplanations?: boolean;
 };
 
 /** Clears the saved trade setup. Currency and broker lot settings stay. */
@@ -183,13 +188,18 @@ export function parseStoredSettings(raw: string | null): StoredCalculatorSetting
       : DEFAULT_ACCOUNT_CURRENCY;
     const preferences = readPreferences(record.preferences);
     const appearance = parseAppearancePreference(record.appearance);
+    const instrumentSpreads = readInstrumentSpreads(record.instrumentSpreads);
     return {
       currency,
       minimumLotSize: readString(record.minimumLotSize, DEFAULT_MINIMUM_LOT),
       lotIncrement: readString(record.lotIncrement, DEFAULT_LOT_INCREMENT),
       instrumentLots: readInstrumentLots(record.instrumentLots),
+      ...(Object.keys(instrumentSpreads).length > 0 ? { instrumentSpreads } : {}),
       ...(preferences ? { preferences } : {}),
       ...(appearance ? { appearance } : {}),
+      ...(typeof record.showHelpExplanations === 'boolean'
+        ? { showHelpExplanations: record.showHelpExplanations }
+        : {}),
     };
   } catch {
     return null;
@@ -218,7 +228,25 @@ function readPreferences(value: unknown): TradePreferences | undefined {
     balance: typeof record.balance === 'string' ? sanitizeDecimal(record.balance) : '',
     riskMode: record.riskMode === 'amount' ? 'amount' : 'percent',
     riskValue: typeof record.riskValue === 'string' ? sanitizeDecimal(record.riskValue) : '',
+    ...(typeof record.spreadEnabled === 'boolean' ? { spreadEnabled: record.spreadEnabled } : {}),
+    ...(record.spreadPriceMode === 'executable' || record.spreadPriceMode === 'chart'
+      ? { spreadPriceMode: record.spreadPriceMode }
+      : {}),
   };
+}
+
+function readInstrumentSpreads(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const spreads: Record<string, string> = {};
+  for (const [symbol, spread] of Object.entries(value)) {
+    if (!/^[A-Z0-9]{2,12}$/.test(symbol) || typeof spread !== 'string') {
+      continue;
+    }
+    spreads[symbol] = sanitizeDecimal(spread);
+  }
+  return spreads;
 }
 
 function readInstrumentLots(value: unknown): Record<string, InstrumentVolume> {

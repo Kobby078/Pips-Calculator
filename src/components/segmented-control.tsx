@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { HelpButton, HelpCallout } from '@/components/help-info';
 import { Spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-theme';
+import type { HelpTopic } from '@/lib/help-content';
 
 type Segment<T extends string> = {
   value: T;
@@ -13,6 +15,7 @@ type SegmentedControlProps<T extends string> = {
   value: T;
   options: readonly Segment<T>[];
   onChange: (value: T) => void;
+  helpTopic?: HelpTopic;
 };
 
 export function SegmentedControl<T extends string>({
@@ -20,11 +23,18 @@ export function SegmentedControl<T extends string>({
   value,
   options,
   onChange,
+  helpTopic,
 }: SegmentedControlProps<T>) {
   const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      <View style={styles.labelRow}>
+        <View style={styles.labelWithHelp}>
+          <Text style={styles.label}>{label}</Text>
+          {helpTopic ? <HelpButton topic={helpTopic} /> : null}
+        </View>
+      </View>
+      {helpTopic ? <HelpCallout topic={helpTopic} /> : null}
       <View style={styles.track}>
         {options.map((option) => {
           const selected = option.value === value;
@@ -54,6 +64,16 @@ export function SegmentedControl<T extends string>({
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
   wrap: {
+    gap: Spacing.two,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  labelWithHelp: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   label: {

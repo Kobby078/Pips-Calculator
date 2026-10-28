@@ -17,11 +17,15 @@ export type PresentedPosition = {
   lotDetail: string;
   summary: ResultRow[];
   metrics: ResultRow[];
+  disclosure: string;
 };
 
 /** Shown with a finished estimate. The calculator form stays free of this copy. */
 export const TRADING_RISK_DISCLOSURE =
   'Educational estimate only. Results ignore commission, spread, and slippage, and they are not a broker quote or a recommendation to trade.';
+
+export const SPREAD_ADJUSTED_DISCLOSURE =
+  'Educational estimate only. Results account for spread in position sizing, but ignore commission and slippage, and they are not a broker quote or a recommendation to trade.';
 
 const EMPTY_METRICS: ResultRow[] = [
   { label: 'Risk budget', value: '—' },
@@ -41,42 +45,102 @@ export function presentPosition(result: PositionCalculationSuccess): PresentedPo
   const currency = result.accountCurrency;
   const supported = result.brokerLots !== null && result.actualLoss !== null;
   const blockedReason = `No supported lot size fits this risk. The minimum position of ${formatLotSize(result.minimumLot)} lots would risk ${formatMoney(result.minimumPositionRisk, currency)}, which is above the ${formatMoney(result.riskAmount, currency)} budget.`;
+  const spreadAdj = result.spreadAdjustment;
+  const hasSpread = spreadAdj !== null && spreadAdj.enabled;
+
   const body = supported
-    ? 'Loss and reward use the broker lot, rounded down to the lot step. Nothing larger than the chosen risk is suggested.'
+    ? hasSpread
+      ? 'Loss and reward use the broker lot sized from the effective spread-adjusted distance. Nothing larger than the chosen risk is suggested.'
+      : 'Loss and reward use the broker lot, rounded down to the lot step. Nothing larger than the chosen risk is suggested.'
     : blockedReason;
+
+  const spreadNote = hasSpread
+    ? spreadAdj.priceMode === 'chart'
+      ? 'Spread is accounted for in position sizing and reward estimates via direction-aware Bid/Ask execution. Commission and slippage remain excluded.'
+      : 'Entered executable prices already reflect market execution. Spread is not double-counted. Commission and slippage remain excluded.'
+    : null;
+
+  const note = [result.assumptionNote, spreadNote].filter(Boolean).join(' ') || null;
+
+  const summary: ResultRow[] = [
+    { label: 'Instrument', value: result.symbol },
+    { label: 'Direction', value: result.direction === 'buy' ? 'Buy' : 'Sell' },
+    { label: 'Quote to account', value: conversionLabel(result) },
+  ];
+
+  if (hasSpread) {
+    summary.push({
+      label: 'Spread adjustment',
+      value:
+        spreadAdj.priceMode === 'chart'
+          ? 'Chart levels (Bid/Ask modeled)'
+          : 'Executable prices (no double count)',
+    });
+  }
+
+  const isGold = result.symbol === 'XAUUSD';
+  const quoteCurr = result.quoteCurrency;
+
+  let distanceRows: ResultRow[];
+  if (!hasSpread) {
+    distanceRows = [
+      isGold
+        ? { label: 'Price distance', value: `${formatMoney(result.stopDistance, quoteCurr)}` }
+        : { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
+    ];
+  } else if (spreadAdj.priceMode === 'chart') {
+    distanceRows = [
+      isGold
+        ? { label: 'Chart price distance', value: `${formatMoney(spreadAdj.chartStopDistance, quoteCurr)}` }
+        : { label: 'Chart stop distance', value: `${formatPips(spreadAdj.chartStopPips)} pips` },
+      isGold
+        ? { label: 'Spread', value: `${formatMoney(spreadAdj.spreadPrice, 'USD')}` }
+        : { label: 'Spread', value: `${formatPips(spreadAdj.spreadPips)} pips` },
+      isGold
+        ? { label: 'Effective price distance', value: `${formatMoney(spreadAdj.effectiveStopDistance, quoteCurr)}` }
+        : { label: 'Effective stop distance', value: `${formatPips(spreadAdj.effectiveStopPips)} pips` },
+    ];
+  } else {
+    // Executable prices mode
+    distanceRows = [
+      isGold
+        ? { label: 'Price distance', value: `${formatMoney(result.stopDistance, quoteCurr)}` }
+        : { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
+      isGold
+        ? { label: 'Spread', value: `${formatMoney(spreadAdj.spreadPrice, 'USD')} (included in price)` }
+        : { label: 'Spread', value: `${formatPips(spreadAdj.spreadPips)} pips (included in price)` },
+    ];
+  }
+
+  const metrics: ResultRow[] = [
+    { label: 'Risk budget', value: formatMoney(result.riskAmount, currency) },
+    {
+      label: 'Estimated loss',
+      value: result.actualLoss === null ? '—' : formatMoney(result.actualLoss, currency),
+    },
+    ...distanceRows,
+    { label: 'Theoretical lots', value: formatLotSize(result.theoreticalLots) },
+    {
+      label: 'Potential reward',
+      value: result.reward === null ? '—' : formatMoney(result.reward, currency),
+    },
+    { label: 'Risk / reward', value: formatRiskReward(result.riskRewardRatio) },
+    { label: 'Risk percentage', value: `${formatPips(result.riskPercent)}%` },
+  ];
 
   return {
     title: supported ? 'Position sized' : 'Risk budget is below the minimum lot',
     body,
     warning: result.warning?.message ?? null,
-    note: result.assumptionNote,
+    note,
     lotFits: supported,
     recommendedLot: supported && result.brokerLots !== null ? formatLotSize(result.brokerLots) : null,
     lotDetail: supported
       ? 'Largest size on the saved lot step that stays inside the risk budget.'
       : blockedReason,
-    summary: [
-      { label: 'Instrument', value: result.symbol },
-      { label: 'Direction', value: result.direction === 'buy' ? 'Buy' : 'Sell' },
-      { label: 'Quote to account', value: conversionLabel(result) },
-    ],
-    metrics: [
-      { label: 'Risk budget', value: formatMoney(result.riskAmount, currency) },
-      {
-        label: 'Estimated loss',
-        value: result.actualLoss === null ? '—' : formatMoney(result.actualLoss, currency),
-      },
-      result.symbol === 'XAUUSD'
-        ? { label: 'Price distance', value: `${formatMoney(result.stopDistance, result.quoteCurrency)}` }
-        : { label: 'Stop distance', value: `${formatPips(result.stopPips)} pips` },
-      { label: 'Theoretical lots', value: formatLotSize(result.theoreticalLots) },
-      {
-        label: 'Potential reward',
-        value: result.reward === null ? '—' : formatMoney(result.reward, currency),
-      },
-      { label: 'Risk / reward', value: formatRiskReward(result.riskRewardRatio) },
-      { label: 'Risk percentage', value: `${formatPips(result.riskPercent)}%` },
-    ],
+    summary,
+    metrics,
+    disclosure: hasSpread ? SPREAD_ADJUSTED_DISCLOSURE : TRADING_RISK_DISCLOSURE,
   };
 }
 

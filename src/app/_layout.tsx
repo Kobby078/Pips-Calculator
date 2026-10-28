@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { HelpProvider } from '@/components/help-context';
 import { SettingsProvider } from '@/components/settings-context';
 import { ThemeSync } from '@/components/theme-sync';
 import { Colors, webThemeColors, type ThemeColors } from '@/constants/theme';
@@ -43,7 +44,9 @@ function ThemedApp() {
 export default function RootLayout() {
   return (
     <SettingsProvider>
-      <ThemedApp />
+      <HelpProvider>
+        <ThemedApp />
+      </HelpProvider>
     </SettingsProvider>
   );
 }

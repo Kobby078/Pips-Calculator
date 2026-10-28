@@ -25,6 +25,8 @@ export default function SettingsScreen() {
     resetTradePreferences,
     appearance,
     setAppearance,
+    showHelpExplanations,
+    setShowHelpExplanations,
   } = useSettings();
   const styles = useThemedStyles(createStyles);
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -36,7 +38,7 @@ export default function SettingsScreen() {
     }
     Alert.alert(
       'Reset preferences?',
-      'This clears the saved instrument, balance, and risk. Broker lot sizes, account currency, and appearance stay on this device.',
+      'This clears the saved instrument, balance, and risk. Broker lot sizes, account currency, appearance, and display settings stay on this device.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Reset', style: 'destructive', onPress: resetTradePreferences },
@@ -96,6 +98,40 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <View style={styles.field}>
+          <Text style={styles.label}>Help guidance</Text>
+          <Text style={styles.hint}>
+            Show supplementary guidance below relevant inputs. When off, tap the (i) information buttons beside input labels for on-demand help.
+          </Text>
+          <View style={styles.appearanceList}>
+            {[
+              { value: false, label: 'Off (Compact mode)' },
+              { value: true, label: 'On (Show helpful explanations)' },
+            ].map((option) => {
+              const selected = showHelpExplanations === option.value;
+              return (
+                <Pressable
+                  key={option.label}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={option.label}
+                  onPress={() => setShowHelpExplanations(option.value)}
+                  style={({ pressed }) => [
+                    styles.appearanceOption,
+                    selected ? styles.appearanceOptionSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}>
+                  <Text style={[styles.appearanceLabel, selected ? styles.appearanceLabelSelected : null]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.field}>
           <Text style={styles.label}>Account currency</Text>
           <Text style={styles.hint}>
             Denomination for the balance and cash risk. Quote-currency results use this currency when
@@ -126,16 +162,20 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.hint}>
-          Minimum lot is the smallest size a broker will accept. Lot increment is the step above that minimum.
-          They can differ. These defaults are your choices, not a check against a broker.
-        </Text>
+        {showHelpExplanations ? (
+          <Text style={styles.hint}>
+            Minimum lot is the smallest size a broker will accept. Lot increment is the step above that minimum.
+            They can differ. These defaults are your choices, not a check against a broker.
+          </Text>
+        ) : null}
         <FormField
           label="Minimum lot size"
           value={minimumLotSize}
           onChangeText={(value) => setMinimumLotSize(sanitizeDecimal(value))}
           placeholder="Enter minimum lot size"
           hint="Example: 0.01. Used when an instrument has no saved broker size."
+          hintVisible={showHelpExplanations}
+          helpTopic="minimumLot"
           error={isPositiveDecimal(minimumLotSize) ? undefined : 'Enter a minimum lot size greater than zero.'}
         />
 
@@ -145,6 +185,8 @@ export default function SettingsScreen() {
           onChangeText={(value) => setLotIncrement(sanitizeDecimal(value))}
           placeholder="Enter lot increment"
           hint="Example: 0.01. Lots step up from the minimum by this amount, and never round up."
+          hintVisible={showHelpExplanations}
+          helpTopic="lotIncrement"
           error={isPositiveDecimal(lotIncrement) ? undefined : 'Enter a lot increment greater than zero.'}
         />
 
@@ -157,13 +199,13 @@ export default function SettingsScreen() {
           <Text style={[styles.resetLabel, !hydrated ? styles.resetLabelDisabled : null]}>Reset preferences</Text>
         </Pressable>
         <Text style={styles.hint}>
-          Clears the saved instrument, balance, and risk. Lot sizes, account currency, and appearance stay saved.
+          Clears the saved instrument, balance, and risk. Lot sizes, account currency, appearance, and display settings stay saved.
         </Text>
         {confirmingReset ? (
           <View style={styles.confirm}>
             <Text style={styles.label}>Reset preferences?</Text>
             <Text style={styles.hint}>
-              This clears the saved instrument, balance, and risk. Broker lot sizes, account currency, and appearance stay on this
+              This clears the saved instrument, balance, and risk. Broker lot sizes, account currency, appearance, and display settings stay on this
               device.
             </Text>
             <View style={styles.confirmActions}>

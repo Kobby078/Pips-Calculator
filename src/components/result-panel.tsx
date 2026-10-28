@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { HelpButton, HelpCallout } from '@/components/help-info';
 import { Spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-theme';
 import { emptyMetricRows, TRADING_RISK_DISCLOSURE, type ResultRow } from '@/lib/present-position';
@@ -15,6 +16,7 @@ type ResultPanelProps = {
   lotDetail?: string | null;
   summary?: ResultRow[];
   metrics?: ResultRow[];
+  disclosure?: string;
 };
 
 export function ResultPanel({
@@ -28,6 +30,7 @@ export function ResultPanel({
   lotDetail,
   summary = [],
   metrics,
+  disclosure,
 }: ResultPanelProps) {
   const styles = useThemedStyles(createStyles);
   const shownMetrics = metrics ?? emptyMetricRows();
@@ -50,14 +53,22 @@ export function ResultPanel({
       <Text style={styles.title}>{heading}</Text>
       {status === 'ready' && lotFits && recommendedLot ? (
         <View style={styles.hero}>
-          <Text style={[styles.heroLabel, styles.positive]}>Broker lot</Text>
+          <View style={styles.heroHeader}>
+            <Text style={[styles.heroLabel, styles.positive]}>Broker lot</Text>
+            <HelpButton topic="lots" />
+          </View>
+          <HelpCallout topic="lots" />
           <Text style={styles.heroValue}>{recommendedLot}</Text>
           {lotDetail ? <Text style={styles.heroDetail}>{lotDetail}</Text> : null}
         </View>
       ) : null}
       {status === 'ready' && lotFits === false ? (
         <View style={styles.heroBlocked}>
-          <Text style={styles.heroLabel}>No supported lot</Text>
+          <View style={styles.heroHeader}>
+            <Text style={styles.heroLabel}>No supported lot</Text>
+            <HelpButton topic="minimumLot" />
+          </View>
+          <HelpCallout topic="minimumLot" />
           <Text style={styles.heroReason}>{body}</Text>
         </View>
       ) : null}
@@ -81,7 +92,7 @@ export function ResultPanel({
           </View>
         ))}
       </View>
-      {status === 'ready' ? <Text style={styles.note}>{TRADING_RISK_DISCLOSURE}</Text> : null}
+      {status === 'ready' ? <Text style={styles.note}>{disclosure ?? TRADING_RISK_DISCLOSURE}</Text> : null}
     </View>
   );
 }
@@ -139,6 +150,11 @@ function createStyles(colors: ThemeColors) {
     borderColor: colors.accent,
     padding: Spacing.three,
     gap: Spacing.one,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   heroBlocked: {
     borderRadius: 14,

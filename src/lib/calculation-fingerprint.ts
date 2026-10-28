@@ -12,6 +12,9 @@ export type CalculationFingerprintInput = {
   minimumLotSize: string;
   lotIncrement: string;
   lotSource: string;
+  spreadEnabled?: boolean;
+  spreadValue?: string;
+  spreadPriceMode?: string;
 };
 
 /** Identity of the inputs behind a result. A new value means the shown result is stale. */
@@ -30,5 +33,8 @@ export function calculationFingerprint(input: CalculationFingerprintInput): stri
     input.minimumLotSize,
     input.lotIncrement,
     input.lotSource,
+    input.spreadEnabled ? 'spread-on' : 'spread-off',
+    input.spreadValue ?? '',
+    input.spreadPriceMode ?? 'chart',
   ].join('|');
 }

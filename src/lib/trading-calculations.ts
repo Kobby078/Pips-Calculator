@@ -18,7 +18,8 @@ export type CalculationField =
   | 'stopLoss'
   | 'takeProfit'
   | 'lots'
-  | 'conversion';
+  | 'conversion'
+  | 'spread';
 
 export type CalculationError = {
   field: CalculationField;
@@ -32,6 +33,33 @@ export type RiskWarningLevel = 'elevated' | 'high' | 'extreme';
 export type RiskWarning = {
   level: RiskWarningLevel;
   message: string;
+};
+
+export type PriceLevelMode = 'chart' | 'executable';
+
+export type SpreadCalculationInput = {
+  enabled: boolean;
+  value: NumericField;
+  priceMode: PriceLevelMode;
+};
+
+export type SpreadAdjustmentDetails = {
+  enabled: boolean;
+  spreadValue: number;
+  spreadPrice: number;
+  spreadPips: number;
+  priceMode: PriceLevelMode;
+  chartStopDistance: number;
+  chartStopPips: number;
+  effectiveStopDistance: number;
+  effectiveStopPips: number;
+  chartRewardDistance: number | null;
+  chartRewardPips: number | null;
+  effectiveRewardDistance: number | null;
+  effectiveRewardPips: number | null;
+  executedEntry: number;
+  executedStopLoss: number;
+  executedTakeProfit: number | null;
 };
 
 export type PositionCalculationInput = {
@@ -49,6 +77,7 @@ export type PositionCalculationInput = {
   lotIncrement: NumericField;
   /** Used only when the quote currency cannot be converted from the instrument. */
   manualQuoteToAccountRate: NumericField;
+  spread?: SpreadCalculationInput;
 };
 
 export type PositionCalculationSuccess = {
@@ -74,6 +103,7 @@ export type PositionCalculationSuccess = {
   takeProfitPips: number | null;
   warning: RiskWarning | null;
   assumptionNote: string | null;
+  spreadAdjustment: SpreadAdjustmentDetails | null;
 };
 
 export type PositionCalculationFailure = {
@@ -218,6 +248,15 @@ export function calculatePosition(input: PositionCalculationInput): PositionCalc
     validateTarget(input.direction, entry, takeProfit, errors);
   }
 
+  if (input.spread?.enabled) {
+    const rawSpread = input.spread.value;
+    if (rawSpread === 'empty') {
+      errors.push({ field: 'spread', message: 'Enter your broker spread, or disable spread adjustment.' });
+    } else if (typeof rawSpread !== 'number' || !Number.isFinite(rawSpread) || rawSpread < 0) {
+      errors.push({ field: 'spread', message: 'Enter a spread of zero or greater.' });
+    }
+  }
+
   const manualRate = resolveManualRate(spec, input, errors);
 
   if (
@@ -242,7 +281,79 @@ export function calculatePosition(input: PositionCalculationInput): PositionCalc
     input.riskMode === 'percent' ? cashRiskFromPercent(balance, riskValue) : riskValue;
   const riskPercent =
     input.riskMode === 'percent' ? riskValue : percentFromCashRisk(balance, riskValue);
-  const stopDistance = Math.abs(entry - stopLoss);
+  const rawStopDistance = Math.abs(entry - stopLoss);
+  const rawRewardDistance = takeProfit !== null ? Math.abs(takeProfit - entry) : null;
+
+  let spreadAdjustment: SpreadAdjustmentDetails | null = null;
+  let effectiveStopDistance = rawStopDistance;
+  let effectiveRewardDistance = rawRewardDistance;
+
+  if (input.spread?.enabled) {
+    const rawSpread = input.spread.value;
+    const spreadValue =
+      typeof rawSpread === 'number' && Number.isFinite(rawSpread) && rawSpread >= 0
+        ? rawSpread
+        : 0;
+
+    const isGold = spec.baseCurrency === 'XAU' || spec.kind === 'metal';
+    const spreadPrice = isGold ? spreadValue : spreadValue * spec.pipSize;
+    const spreadPips = isGold ? (spec.pipSize > 0 ? spreadPrice / spec.pipSize : spreadPrice) : spreadValue;
+    const chartStopDistance = rawStopDistance;
+    const chartStopPips = chartStopDistance / spec.pipSize;
+    const chartRewardDistance = rawRewardDistance;
+    const chartRewardPips = chartRewardDistance !== null ? chartRewardDistance / spec.pipSize : null;
+
+    let executedEntry = entry;
+    let executedStopLoss = stopLoss;
+    let executedTakeProfit = takeProfit;
+
+    if (input.spread.priceMode === 'chart') {
+      if (input.direction === 'buy') {
+        executedEntry = entry + spreadPrice;
+        executedStopLoss = stopLoss;
+        executedTakeProfit = takeProfit;
+      } else {
+        executedEntry = entry;
+        executedStopLoss = stopLoss + spreadPrice;
+        executedTakeProfit = takeProfit !== null ? takeProfit + spreadPrice : null;
+      }
+      effectiveStopDistance = chartStopDistance + spreadPrice;
+      effectiveRewardDistance = chartRewardDistance !== null ? chartRewardDistance - spreadPrice : null;
+    } else {
+      // Executable prices mode: prices already reflect execution, do not double-count
+      effectiveStopDistance = chartStopDistance;
+      effectiveRewardDistance = chartRewardDistance;
+      executedEntry = entry;
+      executedStopLoss = stopLoss;
+      executedTakeProfit = takeProfit;
+    }
+
+    const effectiveStopPips = effectiveStopDistance / spec.pipSize;
+    const validEffectiveReward =
+      effectiveRewardDistance !== null && effectiveRewardDistance > 0 ? effectiveRewardDistance : null;
+    const effectiveRewardPips = validEffectiveReward !== null ? validEffectiveReward / spec.pipSize : null;
+
+    spreadAdjustment = {
+      enabled: true,
+      spreadValue,
+      spreadPrice,
+      spreadPips,
+      priceMode: input.spread.priceMode,
+      chartStopDistance,
+      chartStopPips,
+      effectiveStopDistance,
+      effectiveStopPips,
+      chartRewardDistance,
+      chartRewardPips,
+      effectiveRewardDistance: validEffectiveReward,
+      effectiveRewardPips,
+      executedEntry,
+      executedStopLoss,
+      executedTakeProfit,
+    };
+  }
+
+  const stopDistance = effectiveStopDistance;
   const stopPips = stopDistance / spec.pipSize;
   const lossPerStandardLot = stopDistance * spec.contractSize * conversion.rate;
   const finiteCore = [riskAmount, riskPercent, stopDistance, stopPips, lossPerStandardLot, conversion.rate];
@@ -271,7 +382,14 @@ export function calculatePosition(input: PositionCalculationInput): PositionCalc
   );
   const minimumPositionRisk = minimumLot * lossPerStandardLot;
   const actualLoss = brokerLots === null ? null : brokerLots * lossPerStandardLot;
-  const target = monetaryTarget(spec, takeProfit, entry, brokerLots, actualLoss, conversion.rate);
+  const target = monetaryTarget(
+    spec,
+    takeProfit,
+    effectiveRewardDistance,
+    brokerLots,
+    actualLoss,
+    conversion.rate,
+  );
 
   const success: PositionCalculationSuccess = {
     ok: true,
@@ -296,6 +414,7 @@ export function calculatePosition(input: PositionCalculationInput): PositionCalc
     takeProfitPips: target.takeProfitPips,
     warning: riskWarning(riskPercent, riskAmount, balance),
     assumptionNote: spec.assumptionNote ?? null,
+    spreadAdjustment,
   };
 
   if (!successNumbersAreFinite(success)) {
@@ -335,17 +454,23 @@ function lotsExceedRisk(lots: number, lossPerStandardLot: number, riskAmount: nu
 function monetaryTarget(
   spec: InstrumentSpec,
   takeProfit: number | null,
-  entry: number,
+  rewardDistance: number | null,
   brokerLots: number | null,
   actualLoss: number | null,
   rate: number,
 ): { reward: number | null; riskRewardRatio: number | null; takeProfitPips: number | null } {
-  if (takeProfit === null || brokerLots === null || actualLoss === null || actualLoss <= 0) {
+  if (
+    takeProfit === null ||
+    rewardDistance === null ||
+    rewardDistance <= 0 ||
+    brokerLots === null ||
+    actualLoss === null ||
+    actualLoss <= 0
+  ) {
     return { reward: null, riskRewardRatio: null, takeProfitPips: null };
   }
-  const rewardDistance = Math.abs(takeProfit - entry);
   const reward = brokerLots * rewardDistance * spec.contractSize * rate;
-  if (!Number.isFinite(reward) || reward < 0) {
+  if (!Number.isFinite(reward) || reward <= 0) {
     return { reward: null, riskRewardRatio: null, takeProfitPips: null };
   }
   return {

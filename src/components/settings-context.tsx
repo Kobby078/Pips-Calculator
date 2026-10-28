@@ -27,6 +27,9 @@ type SettingsContextValue = {
   instrumentLots: Readonly<Record<string, InstrumentVolume>>;
   setInstrumentVolume: (symbol: string, volume: InstrumentVolume) => void;
   clearInstrumentVolume: (symbol: string) => void;
+  instrumentSpreads: Readonly<Record<string, string>>;
+  setInstrumentSpread: (symbol: string, spread: string) => void;
+  clearInstrumentSpread: (symbol: string) => void;
   trade: TradePreferences;
   /** Changes when preferences are reset, so inputs can remount instead of echoing old text. */
   tradeRevision: number;
@@ -34,6 +37,8 @@ type SettingsContextValue = {
   resetTradePreferences: () => void;
   appearance: AppearancePreference;
   setAppearance: (appearance: AppearancePreference) => void;
+  showHelpExplanations: boolean;
+  setShowHelpExplanations: (show: boolean) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -44,8 +49,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [minimumLotSize, setMinimumLotSize] = useState(DEFAULT_MINIMUM_LOT);
   const [lotIncrement, setLotIncrement] = useState(DEFAULT_LOT_INCREMENT);
   const [instrumentLots, setInstrumentLots] = useState<Record<string, InstrumentVolume>>({});
+  const [instrumentSpreads, setInstrumentSpreads] = useState<Record<string, string>>({});
   const [trade, setTrade] = useState<TradePreferences>(EMPTY_TRADE_PREFERENCES);
   const [appearance, setAppearance] = useState<AppearancePreference>('system');
+  const [showHelpExplanations, setShowHelpExplanations] = useState(false);
   const [tradeRevision, setTradeRevision] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const ignoreTradeEdits = useRef(false);
@@ -72,6 +79,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const clearInstrumentVolume = useCallback((symbol: string) => {
     setInstrumentLots((current) => {
+      if (!current[symbol]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[symbol];
+      return next;
+    });
+  }, []);
+
+  const setInstrumentSpread = useCallback((symbol: string, spread: string) => {
+    setInstrumentSpreads((current) => ({
+      ...current,
+      [symbol]: spread,
+    }));
+  }, []);
+
+  const clearInstrumentSpread = useCallback((symbol: string) => {
+    setInstrumentSpreads((current) => {
       if (!current[symbol]) {
         return current;
       }
@@ -111,8 +136,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setMinimumLotSize(stored.minimumLotSize);
           setLotIncrement(stored.lotIncrement);
           setInstrumentLots(stored.instrumentLots);
+          setInstrumentSpreads(stored.instrumentSpreads ?? {});
           setTrade(stored.preferences ?? { ...EMPTY_TRADE_PREFERENCES });
           setAppearance(appearanceOrDefault(stored.appearance));
+          setShowHelpExplanations(stored.showHelpExplanations === true);
         }
         setHydrated(true);
       })
@@ -135,11 +162,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       minimumLotSize,
       lotIncrement,
       instrumentLots,
+      ...(Object.keys(instrumentSpreads).length > 0 ? { instrumentSpreads } : {}),
       preferences: trade,
       appearance,
+      ...(showHelpExplanations ? { showHelpExplanations: true } : {}),
     });
     void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, payload).catch(() => undefined);
-  }, [appearance, currency, hydrated, instrumentLots, lotIncrement, minimumLotSize, trade]);
+  }, [
+    appearance,
+    currency,
+    hydrated,
+    instrumentLots,
+    instrumentSpreads,
+    lotIncrement,
+    minimumLotSize,
+    showHelpExplanations,
+    trade,
+  ]);
 
   const value = useMemo(
     () => ({
@@ -154,28 +193,37 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       instrumentLots,
       setInstrumentVolume,
       clearInstrumentVolume,
+      instrumentSpreads,
+      setInstrumentSpread,
+      clearInstrumentSpread,
       trade,
       tradeRevision,
       updateTrade,
       resetTradePreferences,
       appearance,
       setAppearance,
+      showHelpExplanations,
+      setShowHelpExplanations,
     }),
     [
       hydrated,
       currency,
       currencyNotice,
       instrumentLots,
+      instrumentSpreads,
       lotIncrement,
       minimumLotSize,
       setCurrency,
       setInstrumentVolume,
       clearInstrumentVolume,
+      setInstrumentSpread,
+      clearInstrumentSpread,
       trade,
       tradeRevision,
       updateTrade,
       resetTradePreferences,
       appearance,
+      showHelpExplanations,
     ],
   );
 

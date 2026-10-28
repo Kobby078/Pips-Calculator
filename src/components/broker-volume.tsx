@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
+import { useSettings } from '@/components/settings-context';
 import { Spacing, type ThemeColors } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-theme';
 import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
@@ -21,6 +22,7 @@ type BrokerVolumeProps = {
 };
 
 export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: BrokerVolumeProps) {
+  const { showHelpExplanations } = useSettings();
   const styles = useThemedStyles(createStyles);
   const grid = describeVolumeGrid(resolved.minimumLot, resolved.lotIncrement);
   const [open, setOpen] = useState(grid.kind === 'incompatible' || !resolved.valid);
@@ -59,67 +61,75 @@ export function BrokerVolume({ symbol, resolved, onChange, onUseDefaults }: Brok
       ) : null}
       {open ? (
         <View style={styles.details}>
-      <Text style={styles.hint}>
-        Minimum lot is the smallest size that broker will accept. Lot increment is the step above it. A minimum
-        that is not a whole number of steps is incompatible, and no size is recommended.
-      </Text>
-      <View style={styles.chips}>
-        {COMMON_MINIMUM_LOTS.map((value) => {
-          const selected = choice === value;
-          return (
+          {showHelpExplanations ? (
+            <Text style={styles.hint}>
+              Minimum lot is the smallest size that broker will accept. Lot increment is the step above it. A minimum
+              that is not a whole number of steps is incompatible, and no size is recommended.
+            </Text>
+          ) : null}
+          <View style={styles.chips}>
+            {COMMON_MINIMUM_LOTS.map((value) => {
+              const selected = choice === value;
+              return (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Minimum lot ${value}`}
+                  onPress={() => selectPreset(value)}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    selected ? styles.chipSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}>
+                  <Text style={[styles.chipLabel, selected ? styles.chipLabelSelected : null]}>{value}</Text>
+                </Pressable>
+              );
+            })}
             <Pressable
-              key={value}
               accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`Minimum lot ${value}`}
-              onPress={() => selectPreset(value)}
+              accessibilityState={{ selected: choice === 'custom' }}
+              accessibilityLabel="Custom minimum lot"
+              onPress={() => setCustomOpen(true)}
               style={({ pressed }) => [
                 styles.chip,
-                selected ? styles.chipSelected : null,
+                choice === 'custom' ? styles.chipSelected : null,
                 pressed ? styles.pressed : null,
               ]}>
-              <Text style={[styles.chipLabel, selected ? styles.chipLabelSelected : null]}>{value}</Text>
+              <Text style={[styles.chipLabel, choice === 'custom' ? styles.chipLabelSelected : null]}>Custom</Text>
             </Pressable>
-          );
-        })}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: choice === 'custom' }}
-          accessibilityLabel="Custom minimum lot"
-          onPress={() => setCustomOpen(true)}
-          style={({ pressed }) => [
-            styles.chip,
-            choice === 'custom' ? styles.chipSelected : null,
-            pressed ? styles.pressed : null,
-          ]}>
-          <Text style={[styles.chipLabel, choice === 'custom' ? styles.chipLabelSelected : null]}>Custom</Text>
-        </Pressable>
-      </View>
-      {choice === 'custom' ? (
-        <FormField
-          label="Custom minimum lot"
-          value={resolved.minimumLot}
-          onChangeText={(value) => onChange({ minimumLot: sanitizeDecimal(value), lotIncrement: resolved.lotIncrement })}
-          placeholder="Enter a custom minimum lot"
-          error={minimumError}
-        />
-      ) : minimumError ? (
-        <Text style={styles.error}>{minimumError}</Text>
-      ) : null}
-      <FormField
-        label="Lot increment"
-        value={resolved.lotIncrement}
-        onChangeText={(value) => onChange({ minimumLot: resolved.minimumLot, lotIncrement: sanitizeDecimal(value) })}
-        placeholder="Enter lot increment"
-        hint="Example: 0.01 or 0.001. This step can be smaller than the minimum."
-        error={incrementError}
-      />
-      <Text style={grid.kind === 'matched' ? styles.hint : styles.error}>{grid.message}</Text>
-      <Text style={styles.hint}>
-        {resolved.source === 'instrument'
-          ? `Using the minimum and increment saved for ${symbol}.`
-          : 'Using your Settings defaults for now. These are values you chose, not a specification from your broker.'}
-      </Text>
+          </View>
+          {choice === 'custom' ? (
+            <FormField
+              label="Custom minimum lot"
+              value={resolved.minimumLot}
+              onChangeText={(value) => onChange({ minimumLot: sanitizeDecimal(value), lotIncrement: resolved.lotIncrement })}
+              placeholder="Enter a custom minimum lot"
+              helpTopic="minimumLot"
+              hintVisible={showHelpExplanations}
+              error={minimumError}
+            />
+          ) : minimumError ? (
+            <Text style={styles.error}>{minimumError}</Text>
+          ) : null}
+          <FormField
+            label="Lot increment"
+            value={resolved.lotIncrement}
+            onChangeText={(value) => onChange({ minimumLot: resolved.minimumLot, lotIncrement: sanitizeDecimal(value) })}
+            placeholder="Enter lot increment"
+            hint="Example: 0.01 or 0.001. This step can be smaller than the minimum."
+            hintVisible={showHelpExplanations}
+            helpTopic="lotIncrement"
+            error={incrementError}
+          />
+          <Text style={grid.kind === 'matched' ? styles.hint : styles.error}>{grid.message}</Text>
+          {showHelpExplanations ? (
+            <Text style={styles.hint}>
+              {resolved.source === 'instrument'
+                ? `Using the minimum and increment saved for ${symbol}.`
+                : 'Using your Settings defaults for now. These are values you chose, not a specification from your broker.'}
+            </Text>
+          ) : null}
       {resolved.source === 'instrument' ? (
         <Pressable
           accessibilityRole="button"
