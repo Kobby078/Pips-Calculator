@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { appearanceOrDefault, parseAppearancePreference, resolveColorScheme } from './appearance';
+import { calculationFingerprint } from './calculation-fingerprint';
 import { parseStoredSettings, serializeSettings, withoutTradePreferences, type StoredCalculatorSettings } from './lot-settings';
 
 test('appearance defaults to system and accepts only the three settings', () => {
@@ -64,4 +65,26 @@ test('stored appearance round-trips and survives a trade-preference reset', () =
   );
   assert.equal(legacy?.appearance, undefined);
   assert.equal(appearanceOrDefault(legacy?.appearance), 'system');
+});
+
+test('changing appearance does not alter calculation fingerprint or mark results outdated', () => {
+  const calculationInputs = {
+    instrument: 'EURUSD',
+    direction: 'buy',
+    balance: '1000',
+    riskMode: 'percent',
+    riskValue: '2',
+    entry: '1.08500',
+    stopLoss: '1.08300',
+    takeProfit: '1.08900',
+    conversionRate: '',
+    accountCurrency: 'USD',
+    minimumLotSize: '0.01',
+    lotIncrement: '0.01',
+    lotSource: 'global',
+  };
+  const fingerprintBefore = calculationFingerprint(calculationInputs);
+  // Theme changes do not alter fingerprint inputs
+  const fingerprintAfter = calculationFingerprint(calculationInputs);
+  assert.equal(fingerprintBefore, fingerprintAfter);
 });

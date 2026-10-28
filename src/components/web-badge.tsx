@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   badgeImage: {
-    width: 123,
-    aspectRatio: 123 / 24,
+    width: 36,
+    height: 36,
   },
 });

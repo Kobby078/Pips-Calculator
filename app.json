@@ -35,7 +35,9 @@
           "image": "./assets/brand/atlasjfx-emblem.png",
           "imageWidth": 220
         }
-      ]
+      ],
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

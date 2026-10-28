@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 type ScreenHeaderProps = {
   title: string;
@@ -10,13 +11,17 @@ type ScreenHeaderProps = {
 };
 
 export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
+  const colors = useTheme();
+
   return (
     <View style={styles.header}>
       <View {...(Platform.OS === 'web' ? { dataSet: { pageBrand: 'true' } } : {})}>
         <BrandLogo variant="complete" height={72} />
       </View>
-      <ThemedText style={styles.title}>{title}</ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+      <ThemedText themeColor="text" style={[styles.title, { color: colors.text }]}>
+        {title}
+      </ThemedText>
+      <ThemedText themeColor="textSecondary" style={[styles.subtitle, { color: colors.textSecondary }]}>
         {subtitle}
       </ThemedText>
     </View>

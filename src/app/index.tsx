@@ -292,7 +292,7 @@ export default function CalculatorScreen() {
       <ScreenScroll>
         <ScreenHeader
           title="Risk Calculator"
-          subtitle="Size a position from your balance, risk, and price levels."
+          subtitle="Size a position from your balance, risk, and price levels. Reference prices are indicative."
         />
       </ScreenScroll>
     );

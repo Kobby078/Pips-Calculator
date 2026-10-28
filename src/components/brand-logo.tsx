@@ -23,7 +23,7 @@ type BrandLogoProps = {
 /** Official artwork. Light surfaces sit it on the charcoal brand field. */
 export function BrandLogo({ variant, height }: BrandLogoProps) {
   const scheme = useResolvedColorScheme();
-  const lightPlate = Platform.OS !== 'web' && scheme === 'light';
+  const lightPlate = scheme === 'light';
 
   return (
     <View
