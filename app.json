@@ -23,7 +23,7 @@
       "package": "com.saintxd.atlasjfxcalculator"
     },
     "web": {
-      "output": "server",
+      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
