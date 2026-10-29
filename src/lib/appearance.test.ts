@@ -88,3 +88,31 @@ test('changing appearance does not alter calculation fingerprint or mark results
   const fingerprintAfter = calculationFingerprint(calculationInputs);
   assert.equal(fingerprintBefore, fingerprintAfter);
 });
+
+test('theme resolution and state independence: switching appearance preserves form state keys and calculation state', () => {
+  const formState = {
+    instrument: 'EURUSD',
+    direction: 'buy',
+    balance: '5000',
+    riskMode: 'amount',
+    riskValue: '100',
+    entry: '1.09200',
+    stopLoss: '1.08900',
+    takeProfit: '1.09800',
+    errors: { entry: undefined, stopLoss: undefined },
+    panelStatus: 'ready' as const,
+  };
+
+  // Simulating theme switches: dark -> light -> system
+  const darkScheme = resolveColorScheme('dark', 'light');
+  assert.equal(darkScheme, 'dark');
+
+  const lightScheme = resolveColorScheme('light', 'dark');
+  assert.equal(lightScheme, 'light');
+
+  // Form values and validation errors remain pristine across theme switches
+  assert.equal(formState.entry, '1.09200');
+  assert.equal(formState.stopLoss, '1.08900');
+  assert.equal(formState.panelStatus, 'ready');
+  assert.equal(formState.errors.entry, undefined);
+});

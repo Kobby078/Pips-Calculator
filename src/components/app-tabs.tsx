@@ -16,8 +16,7 @@ export default function AppTabs() {
         selected: { color: colors.text },
       }}
       labelVisibilityMode="labeled"
-      tabBarRespectsIMEInsets
-      activityEnabled>
+      tabBarRespectsIMEInsets>
       <NativeTabs.Trigger name="index" contentStyle={{ backgroundColor: colors.background }}>
         <NativeTabs.Trigger.Label>Calculator</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="function" md="calculate" />

@@ -23,5 +23,7 @@ export function useTheme(): ThemeColors {
 
 export function useThemedStyles<T>(factory: (colors: ThemeColors) => T): T {
   const colors = useTheme();
-  return useMemo(() => factory(colors), [colors, factory]);
+  const scheme = useResolvedColorScheme();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- scheme ensures cached style sheets recompute on theme toggle
+  return useMemo(() => factory(colors), [colors, scheme, factory]);
 }

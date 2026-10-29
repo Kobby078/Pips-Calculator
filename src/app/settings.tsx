@@ -7,7 +7,7 @@ import { ScreenScroll } from '@/components/screen-scroll';
 import { useSettings } from '@/components/settings-context';
 import { ACCOUNT_CURRENCIES, type AccountCurrency } from '@/constants/currencies';
 import { SettingsContentWidth, Spacing, type ThemeColors } from '@/constants/theme';
-import { useThemedStyles } from '@/hooks/use-theme';
+import { useResolvedColorScheme, useThemedStyles } from '@/hooks/use-theme';
 import type { AppearancePreference } from '@/lib/appearance';
 import { isPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
 import { TRADING_RISK_DISCLOSURE } from '@/lib/present-position';
@@ -28,6 +28,7 @@ export default function SettingsScreen() {
     showHelpExplanations,
     setShowHelpExplanations,
   } = useSettings();
+  const scheme = useResolvedColorScheme();
   const styles = useThemedStyles(createStyles);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
@@ -52,7 +53,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll key={`settings-scroll-${scheme}`}>
       <View style={styles.column}>
       <ScreenHeader
         title="Settings"

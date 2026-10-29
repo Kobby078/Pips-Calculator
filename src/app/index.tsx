@@ -15,7 +15,7 @@ import { useSettings } from '@/components/settings-context';
 import { SpreadAdjustment } from '@/components/spread-adjustment';
 import { INSTRUMENTS } from '@/constants/instruments';
 import { Spacing, type ThemeColors } from '@/constants/theme';
-import { useThemedStyles } from '@/hooks/use-theme';
+import { useResolvedColorScheme, useThemedStyles } from '@/hooks/use-theme';
 import { useReferenceQuote } from '@/hooks/use-reference-quote';
 import { calculationFingerprint } from '@/lib/calculation-fingerprint';
 import { readPositiveDecimal, sanitizeDecimal } from '@/lib/decimal-input';
@@ -81,6 +81,7 @@ export default function CalculatorScreen() {
     updateTrade,
     showHelpExplanations,
   } = useSettings();
+  const scheme = useResolvedColorScheme();
   const styles = useThemedStyles(createCalculatorStyles);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const instrument = trade.instrument;
@@ -307,7 +308,7 @@ export default function CalculatorScreen() {
 
   if (!hydrated) {
     return (
-      <ScreenScroll>
+      <ScreenScroll key={`calc-scroll-loading-${scheme}`}>
         <ScreenHeader
           title="Risk Calculator"
           subtitle="Size a position from your balance, risk, and price levels. Reference prices are indicative."
@@ -318,6 +319,7 @@ export default function CalculatorScreen() {
 
   return (
     <ScreenScroll
+      key={`calc-scroll-${scheme}`}
       ref={scrollRef}
       footer={calculateButton('Calculate', true)}>
       <ScreenHeader
@@ -457,12 +459,13 @@ export default function CalculatorScreen() {
                 ),
               },
               {
-                key: 'levels',
+                key: `levels-${scheme}`,
                 title: 'Price levels',
                 children: (
                   <>
                     <FieldPair>
                       <FormField
+                        key={`entry-${scheme}`}
                         label="Entry price"
                         value={entry}
                         onChangeText={(value) => {
@@ -475,6 +478,7 @@ export default function CalculatorScreen() {
                       />
 
                       <FormField
+                        key={`stopLoss-${scheme}`}
                         label="Stop loss"
                         value={stopLoss}
                         onChangeText={(value) => {
@@ -487,6 +491,7 @@ export default function CalculatorScreen() {
                       />
                     </FieldPair>
                     <FormField
+                      key={`takeProfit-${scheme}`}
                       label="Take profit"
                       value={takeProfit}
                       onChangeText={(value) => {
